@@ -29,7 +29,7 @@ controls.maxPolarAngle = Math.PI / 2;
 
 // === Lighting Setup ===
 // Ambient light with intensity 0.5
-const ambientLight = new THREE.AmbientLight(0xffffff, 3); // Set intensity to 0.5
+const ambientLight = new THREE.AmbientLight(0xa8a8a8, 50); // Set intensity to 0.5
 scene.add(ambientLight);
 
 // Add a point light that casts shadows
