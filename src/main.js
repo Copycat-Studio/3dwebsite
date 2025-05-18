@@ -1,13 +1,15 @@
+// === Import Dependencies ===
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { TWEEN } from 'three/examples/jsm/libs/tween.module.min';
+import * as TWEEN from '@tweenjs/tween.js';
 
 // === Scene Setup ===
 const scene = new THREE.Scene();
+const clock = new THREE.Clock();
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 1.5, 4);
+scene.add(camera);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -17,6 +19,7 @@ document.body.style.margin = '0';
 document.body.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
+controls.enabled = true;
 controls.enableDamping = true;
 controls.minPolarAngle = Math.PI / 3;
 controls.maxPolarAngle = Math.PI / 2;
@@ -24,197 +27,168 @@ controls.maxPolarAngle = Math.PI / 2;
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 
-// === Loaders and Variables ===
+// === Loader ===
 const loader = new GLTFLoader();
 const modelNames = [
-  'car', 'cart', 'lamp', 'hood', 'generator',
-  'table', 'ground', 'robot', 'sign', 'menu',
-  'back', 'guide'
+  'car', 'cart', 'lamp', 'hood', 'generator', 'table',
+  'ground', 'robot', 'sign', 'menu', 'back', 'guide'
 ];
+
 const mixers = [];
-const clickable = {};
-const cameras = {};
-let mainCamera = null;
-let inAltView = false;
+const shapeKeyObjects = {};
+let camTargets = {};
+let currentFocus = null;
+let mainCamTransform = null;
+let allowHover = { hood: true, back: true };
+const hoverTimers = {};
 
-// === Load Models ===
-modelNames.forEach(name => {
-  loader.load(`/models/${name}.glb`, gltf => {
+function loadModel(name) {
+  loader.load(`/models/${name}.glb`, (gltf) => {
     const model = gltf.scene;
-    model.traverse(obj => {
-      obj.castShadow = true;
-      obj.receiveShadow = true;
+    model.name = name;
+    scene.add(model);
 
-      // Store special cameras
-      if (['Main_Cam', 'Cam_Engine', 'Cam_Custom'].includes(obj.name)) cameras[obj.name] = obj;
-      if (['Cam_Menu', 'Cam_Guide'].includes(obj.name)) cameras[obj.name] = obj;
-
-      // Set Main_Cam as starting camera
-      if (obj.name === 'Main_Cam' && !mainCamera) {
-        camera.position.copy(obj.position);
-        camera.quaternion.copy(obj.quaternion);
-        mainCamera = obj;
-      }
-    });
-
-    // Loop shape keys
-    model.traverse(obj => {
-      if (obj.morphTargetInfluences) {
-        const duration = name === 'robot' ? 1000 : (name === 'lamp' ? 2000 : null);
-        if (duration) {
-          let direction = 1;
-          setInterval(() => {
-            for (let i = 0; i < obj.morphTargetInfluences.length; i++) {
-              obj.morphTargetInfluences[i] += direction * 0.05;
-              if (obj.morphTargetInfluences[i] > 1 || obj.morphTargetInfluences[i] < 0) {
-                direction *= -1;
-              }
-            }
-          }, duration / 20);
+    model.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        if (child.morphTargetInfluences) {
+          if (!shapeKeyObjects[name]) shapeKeyObjects[name] = [];
+          shapeKeyObjects[name].push(child);
         }
       }
+      if (child.isCamera) {
+        camTargets[child.name] = child;
+      }
     });
 
-    // Interactions
-    if (['hood', 'back', 'table', 'menu', 'guide'].includes(name)) {
-      clickable[name] = model;
-
-      model.userData.name = name;
-      model.traverse(obj => {
-        obj.userData.parentModel = name;
-      });
+    if (name === 'ground') {
+      const checkCam = () => {
+        const cam = camTargets['MainCam'];
+        if (cam) {
+          camera.position.copy(cam.position);
+          camera.quaternion.copy(cam.quaternion);
+          mainCamTransform = cam;
+          controls.enabled = true;
+        } else {
+          setTimeout(checkCam, 100);
+        }
+      };
+      checkCam();
     }
-
-    scene.add(model);
   });
+}
+
+modelNames.forEach(loadModel);
+
+function tweenToCamera(target) {
+  currentFocus = target.name;
+  controls.enabled = false;
+
+  new TWEEN.Tween(camera.position)
+    .to({ x: target.position.x, y: target.position.y, z: target.position.z }, 1000)
+    .easing(TWEEN.Easing.Quadratic.InOut)
+    .start();
+
+  const camRot = new THREE.Quaternion().copy(target.quaternion);
+  new TWEEN.Tween(camera.quaternion)
+    .to({ x: camRot.x, y: camRot.y, z: camRot.z, w: camRot.w }, 1000)
+    .easing(TWEEN.Easing.Quadratic.InOut)
+    .start();
+}
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && currentFocus && mainCamTransform) {
+    tweenToCamera(mainCamTransform);
+    controls.enabled = true;
+    currentFocus = null;
+    allowHover = { hood: true, back: true };
+  }
 });
 
-// === Raycasting for interactions ===
+const shapeLoopers = {
+  lamp: { duration: 2000 },
+  robot: { duration: 1000 },
+  generator: { duration: 1000 },
+  menu: { duration: 2000, step: (t) => ((t % 1) < 0.2 ? 1 : 0) },
+};
+
+function animateShapeKeys(name, duration = 2000, stepFunc) {
+  const objs = shapeKeyObjects[name];
+  if (!objs) return;
+  const t = performance.now() / duration;
+  const value = stepFunc ? stepFunc(t) : (t % 2 < 1 ? t % 1 : 1 - (t % 1));
+  objs.forEach((mesh) => {
+    for (let i = 0; i < mesh.morphTargetInfluences.length; i++) {
+      mesh.morphTargetInfluences[i] = value;
+    }
+  });
+}
+
+function setMorphValue(name, index, value) {
+  shapeKeyObjects[name]?.forEach(m => {
+    if (m.morphTargetInfluences.length > index) m.morphTargetInfluences[index] = value;
+  });
+}
+
+// === Raycaster ===
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
-let hovered = null;
-const clock = new THREE.Clock();
 
-// === Animate shape keys ===
-function animateMorph(obj, key, to, duration = 500) {
-  const start = obj.morphTargetInfluences[key] ?? 0;
-  const startTime = performance.now();
+function onMouseMove(e) {
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  document.body.style.cursor = 'default';
 
-  function animate() {
-    const now = performance.now();
-    const elapsed = now - startTime;
-    const t = Math.min(elapsed / duration, 1);
-    obj.morphTargetInfluences[key] = start + (to - start) * t;
-    if (t < 1) requestAnimationFrame(animate);
-  }
-  animate();
-}
-
-// === Camera Transition ===
-function moveCameraTo(targetCam) {
-  if (!cameras[targetCam]) return;
-  const fromPos = camera.position.clone();
-  const fromQuat = camera.quaternion.clone();
-  const toPos = cameras[targetCam].getWorldPosition(new THREE.Vector3());
-  const toQuat = cameras[targetCam].getWorldQuaternion(new THREE.Quaternion());
-
-  new TWEEN.Tween(fromPos).to(toPos, 1000).easing(TWEEN.Easing.Quadratic.InOut)
-    .onUpdate(() => camera.position.copy(fromPos)).start();
-  new TWEEN.Tween(fromQuat).to(toQuat, 1000).easing(TWEEN.Easing.Quadratic.InOut)
-    .onUpdate(() => camera.quaternion.copy(fromQuat)).start();
-
-  controls.enabled = false;
-  inAltView = true;
-}
-
-// === Mouse Events ===
-window.addEventListener('mousemove', event => {
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-});
-
-window.addEventListener('click', () => {
-  if (hovered) {
-    switch (hovered) {
-      case 'hood':
-        hoodClicked = true;
-        animateMorph(clickable.hood.children[0], 0, 1);
-        moveCameraTo('Cam_Engine');
-        break;
-      case 'back':
-        backClicked = true;
-        animateMorph(clickable.back.children[0], 1, 1);
-        moveCameraTo('Cam_Custom');
-        break;
-      case 'menu':
-        moveCameraTo('Cam_Menu');
-        break;
-      case 'guide':
-        moveCameraTo('Cam_Guide');
-        break;
-    }
-  }
-});
-
-window.addEventListener('wheel', () => {
-  if (inAltView) {
-    controls.enabled = true;
-    inAltView = false;
-    moveCameraTo('Main_Cam');
-  }
-});
-
-let hoodClicked = false;
-let backClicked = false;
-
-// === Hover Logic ===
-function handleHover() {
   raycaster.setFromCamera(mouse, camera);
   const intersects = raycaster.intersectObjects(scene.children, true);
   if (intersects.length > 0) {
-    const name = intersects[0].object.userData.parentModel;
-    if (name !== hovered) hovered = name;
+    const obj = intersects[0].object.parent;
+    const name = obj.name;
+    if (["hood", "back", "table", "menu", "guide"].includes(name)) {
+      document.body.style.cursor = 'pointer';
+    }
 
-    const obj = clickable[name]?.children[0];
-    if (!obj || !obj.morphTargetInfluences) return;
-
-    switch (name) {
-      case 'hood':
-        if (!hoodClicked) {
-          animateMorph(obj, 0, 0.2);
-        }
-        break;
-      case 'back':
-        if (!backClicked) {
-          animateMorph(obj, 1, 0);
-        }
-        break;
-      case 'table':
-        animateMorph(obj, 1, 1, 500);
-        animateMorph(obj, 2, 1, 500);
-        break;
+    if ((name === 'hood' || name === 'back') && allowHover[name]) {
+      clearTimeout(hoverTimers[name]);
+      hoverTimers[name] = setTimeout(() => {
+        setMorphValue(name, 0, name === 'hood' ? 0.1 : 0);
+      }, 250);
+    } else if (name === 'table') {
+      setMorphValue('table', 1, 1);
+      setTimeout(() => setMorphValue('table', 1, 0), 1000);
+      setMorphValue('table', 2, 1);
     }
   } else {
-    if (hovered) {
-      const obj = clickable[hovered]?.children[0];
-      if (!obj || !obj.morphTargetInfluences) return;
-
-      switch (hovered) {
-        case 'hood':
-          if (!hoodClicked) animateMorph(obj, 0, 0);
-          break;
-        case 'back':
-          if (!backClicked) animateMorph(obj, 1, 1);
-          break;
-        case 'table':
-          animateMorph(obj, 1, 0, 500);
-          animateMorph(obj, 2, 0, 500);
-          break;
-      }
-    }
-    hovered = null;
+    Object.keys(hoverTimers).forEach(k => clearTimeout(hoverTimers[k]));
+    if (allowHover.hood) setMorphValue('hood', 0, 0);
+    if (allowHover.back) setMorphValue('back', 0, 1);
+    setMorphValue('table', 2, 0);
   }
 }
+
+function onClick() {
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(scene.children, true);
+  if (intersects.length > 0) {
+    const name = intersects[0].object.parent.name;
+    if (name === 'hood') {
+      allowHover.hood = false;
+      setMorphValue('hood', 0, 1);
+      tweenToCamera(camTargets['CamEngine']);
+    }
+    if (name === 'back') {
+      allowHover.back = false;
+      setMorphValue('back', 0, 0);
+      tweenToCamera(camTargets['CamCustom']);
+    }
+    if (name === 'menu') tweenToCamera(camTargets['CamMenu']);
+    if (name === 'guide') tweenToCamera(camTargets['CamGuide']);
+  }
+}
+
+window.addEventListener('mousemove', onMouseMove);
+window.addEventListener('click', onClick);
 
 // === Resize ===
 window.addEventListener('resize', () => {
@@ -228,7 +202,12 @@ function animate() {
   requestAnimationFrame(animate);
   controls.update();
   TWEEN.update();
-  handleHover();
+
+  for (const name in shapeLoopers) {
+    const { duration, step } = shapeLoopers[name];
+    animateShapeKeys(name, duration, step);
+  }
+
   renderer.render(scene, camera);
 }
 animate();
