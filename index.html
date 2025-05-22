@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Copycat 3D Website</title>
     <link rel="icon" href="/favicon.ico" />
-    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="./style.css" />
     <style>
       html, body {
         margin: 0;
@@ -17,13 +17,33 @@
         display: block;
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-B-xFloLD.js"></script>
+    <script type="module" crossorigin src="/assets/index-B9eRB7ut.js"></script>
   </head>
+
+  
   <body>
 
-    <div id="loading">
-  <div class="loading-text">Loading...</div>
+<!-- HTML (in index.html or dynamically created) -->
+<div id="hood-caption" style="
+  position: fixed;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  padding: 4px 8px;
+  font-size: 13px;
+  border-radius: 4px;
+  font-family: sans-serif;
+  z-index: 9999;
+  display: none;
+">
+  click to open
 </div>
 
+  <div id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text">Loading your experience...</div>
+  </div>
+
+  <!-- canvas and 3D scripts load below -->
   </body>
 </html>
