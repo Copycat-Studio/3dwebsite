@@ -26,51 +26,48 @@ canvas {
 /* ================================
    🚀 Loading Overlay (STATIC)
 ================================= */
-#loading {
+loading {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  background-color: #000;
+  background-color: #322F7D; /* match the background color */
+  color: #fff;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   z-index: 99999;
-  pointer-events: all;
+  font-family: 'Helvetica Neue', sans-serif;
 }
 
-/* Spinner (Circular Loader) */
-.spinner {
-  width: 60px;
-  height: 60px;
-  border: 8px solid rgba(255, 255, 255, 0.2);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 16px;
-  box-sizing: border-box;
+.loader-logo {
+  width: 220px;
+  margin-bottom: 20px;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+.percent-text {
+  font-size: 3rem;
+  font-weight: 600;
+  margin-bottom: 12px;
 }
 
-/* Loading Text Pulse */
-.loading-text {
-  font-size: 1.2rem;
-  color: white;
-  animation: pulse 1.5s infinite;
+.status-text {
+  font-size: 1.1rem;
+  opacity: 0.85;
+  margin-bottom: 20px;
 }
 
-@keyframes pulse {
-  0%   { opacity: 1; }
-  50%  { opacity: 0.5; }
-  100% { opacity: 1; }
+.bottom-note {
+  position: absolute;
+  bottom: 16px;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #7be0df;
+  width: 100%;
 }
+
 
 
 /* ================================

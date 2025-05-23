@@ -15,13 +15,22 @@ const scene = new THREE.Scene();
 const clock = new THREE.Clock();
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
 scene.add(camera);
-const USE_LOADING_SCREEN = false; // ⬅️ flip to true to enable
+const USE_LOADING_SCREEN = true; // ⬅️ flip to true to enable
 const animationSpeeds = {
   generator: 1,
   lamp: 0.3,
-  menu: 0.5
+  menu: 0.5,
+  robot: 0.5
 
 };
+const DEBUG = true; // ✅ flip to false to silence logs
+window.DEBUG = true; // 👈 make it global
+
+if (!DEBUG) {
+  console.log = () => {};
+  console.warn = () => {};
+  console.error = () => {};
+}
 
 
 const debugSphere = new THREE.Mesh(
@@ -50,14 +59,32 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.minPolarAngle = Math.PI / 3;
 controls.maxPolarAngle = Math.PI / 2;
-controls.minDistance = 2;
+controls.minDistance = 1.5;
 controls.maxDistance = 9;
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.75));
 
-const loader = new GLTFLoader();
+const loadingManager = new THREE.LoadingManager();
+
+loadingManager.onError = function(url) {
+  console.error("Got a problem loading: ${url");
+} 
+
+const loader = new GLTFLoader(loadingManager);
+const percentText = document.querySelector('.percent-text');
+const statusText = document.querySelector('.status-text');
 const modelRefs = {};
 const camTargets = {};
+const captionMap = {
+  'hitbox_hood': 'open<br>the engine',
+  'hitbox_menu': 'click to see<br>portfolio',
+  'hitbox_back': 'click to custom',
+  'hitbox_guide': 'how to play',
+  'hitbox_app': 'COMING<br>SOON',
+  'hitbox_reel': 'showreel',
+  'hitbox_vr': 'COMING<br>SOON',
+  'hitbox_immersive': 'COMING<br>SOON'
+};
 const hitboxMap = {
   'hitbox_back': {
     cam: 'cam_custom',
@@ -71,11 +98,16 @@ const hitboxMap = {
     cam: 'cam_engine',
     model: 'hood'
   },
+  'hitbox_guide': {
+    cam: 'cam_guide',
+    model: 'guide'
+  },
   'hitbox_glb': {
     cam: 'cam_back',
     model: 'back'
   }
 };
+
 
 
 let currentFocus = null;
@@ -92,26 +124,26 @@ function checkEverythingLoaded() {
   if (domReady && canvasReady && loadedCount === modelNames.length) {
     console.log('✅ All assets and DOM fully loaded!');
 
-    if (USE_LOADING_SCREEN) {
-      const loadingEl = document.getElementById('loading');
-      if (loadingEl) {
-        loadingEl.remove();
-        console.log('🧹 Loader removed');
-      } else {
-        console.warn('⚠️ #loading not found in DOM.');
-      }
-    }
+   // if (USE_LOADING_SCREEN) {
+   //   const loadingEl = document.getElementById('loading');
+   //   if (loadingEl) {
+   //     loadingEl.remove();
+   //     console.log('🧹 Loader removed');
+   //   } else {
+   //     console.warn('⚠️ #loading not found in DOM.');
+   //   }
+   // }
   }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   domReady = true;
-  if (!USE_LOADING_SCREEN) {
-    const loadingEl = document.getElementById('loading');
-    if (loadingEl) {
-      loadingEl.remove(); // 💣 kill instantly if disabled
-    }
-  }
+  //if (!USE_LOADING_SCREEN) {
+  //  const loadingEl = document.getElementById('loading');
+  //  if (loadingEl) {
+  //    loadingEl.remove(); // 💣 kill instantly if disabled
+  //  }
+  //}
   checkEverythingLoaded();
 });
 
@@ -162,6 +194,8 @@ function reverseAllCamClips(modelName = 'focus_cam', speed = 1) {
     }
   });
 }
+
+scene.remove(debugSphere);
 
 // === Tween Helper ===
 function tweenValue(obj, key, toValue, duration, easing = TWEEN.Easing.Quadratic.Out, onUpdate, onComplete) {
@@ -313,8 +347,28 @@ const modelNames = [
   'car', 'cart', 'lamp', 'hood', 'generator', 'table',
   'ground', 'robot', 'sign1', 'sign2', 'menu', 'back', 'guide',
   'cam_engine', 'cam_guide','cam_custom','cam_menu',
-  'hitbox_menu', 'hitbox_table', 'hitbox_hood', 'hitbox_back', 'removelater', 'focus_cam'
+  'hitbox_menu', 'hitbox_table', 'hitbox_hood', 'hitbox_back', 
+  'hitbox_app', 'removelater', 'focus_cam', 'hitbox_vr', 'hitbox_immersive', 'hitbox_guide',
+  'hitbox_reel', 'background',
+  'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive'
 ];
+
+const loadingText = document.querySelector('.loading-text');
+
+loader.manager.onProgress = (url, loaded, total) => {
+  const percent = Math.round((loaded / total) * 100);
+  if (percentText) percentText.textContent = `${percent}%`;
+  if (statusText) statusText.textContent = `Loading ${url.split('/').pop()}...`;
+};
+
+loader.manager.onLoad = () => {
+  console.log('✅ All assets loaded (onLoad manager)');
+  if (USE_LOADING_SCREEN) {
+    const loadingEl = document.getElementById('loading');
+    loadingEl?.remove();
+  }
+};
+
 
 function loadModel(name) {
   loader.load(`/models/${name}.glb`, (gltf) => {
@@ -322,6 +376,12 @@ function loadModel(name) {
     model.name = name.toLowerCase();
     scene.add(model);
     modelRefs[model.name] = model;
+    // 🔒 Hide icon_* models on load
+if (['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel'].includes(model.name)) {
+  model.visible = false;
+  console.log(`🙈 Hiding icon model: ${model.name}`);
+}
+
 
     const worldPos = new THREE.Vector3();
 model.getWorldPosition(worldPos);
@@ -334,7 +394,7 @@ console.log(`🌍 World position of "${model.name}":`, worldPos.toArray());
     }
 
         // 🔁 Auto-play looped animation for specific models
-    if (['generator', 'lamp', 'menu'].includes(name.toLowerCase()) && gltf.animations?.length > 0) {
+    if (['generator', 'lamp', 'menu', 'robot'].includes(name.toLowerCase()) && gltf.animations?.length > 0) {
   const mixer = new THREE.AnimationMixer(model);
   const loopAction = mixer.clipAction(gltf.animations[0]);
   
@@ -351,6 +411,12 @@ console.log(`🌍 World position of "${model.name}":`, worldPos.toArray());
     model.traverse((child) => {
   if (child.name) child.name = child.name.toLowerCase();
 
+if (child.name && ['hitbox_app', 'hitbox_vr', 'hitbox_immersive', 'hitbox_reel'].includes(child.name)) {
+  child.visible = false;
+  child.userData.disabled = true;
+}
+
+  
   if (child.isMesh) {
     child.castShadow = true;
     child.receiveShadow = true;
@@ -532,43 +598,97 @@ function onMouseMove(e) {
 
   const captionEl = document.getElementById('hood-caption');
 
-  if (newHoveredHitbox !== lastHoveredHitbox) {
+if (newHoveredHitbox !== lastHoveredHitbox) {
+
+  // === Hover out ===
   if (lastHoveredHitbox) {
     console.log(`👋 Hover out: ${lastHoveredHitbox}`);
+
     if (lastHoveredHitbox === 'hitbox_hood' && !hoodHoverLocked) {
       playHoodClip('nla_hoodClose', 5);
     }
     if (lastHoveredHitbox === 'hitbox_table') {
-      playModelClip('table', 'nla_tableback', 1); // 🔄 reverse
+      playModelClip('table', 'nla_tableback', 1);
+    }
+
+    // 🛑 Stop icon animations
+    const stopAnim = (modelName) => {
+      const model = modelRefs[modelName];
+      if (!model?.userData?.mixer) return;
+      model.userData.mixer.stopAllAction();
+      console.log(`🛑 Stopped animations on ${modelName}`);
+    };
+
+    switch (lastHoveredHitbox) {
+      case 'hitbox_reel': stopAnim('icon_reel'); break;
+      case 'hitbox_vr': stopAnim('icon_vr'); break;
+      case 'hitbox_app': stopAnim('icon_app'); break;
+      case 'hitbox_immersive': stopAnim('icon_immersive'); break;
     }
   }
 
+  // === Hover in ===
   if (newHoveredHitbox) {
-  console.log(`👀 Hover in: ${newHoveredHitbox}`);
-  if (newHoveredHitbox === 'hitbox_hood' && !hoodHoverLocked) {
-    playHoodClip('nla_hoodOpen', 5);
+    console.log(`👀 Hover in: ${newHoveredHitbox}`);
+
+    if (newHoveredHitbox === 'hitbox_hood' && !hoodHoverLocked) {
+      playHoodClip('nla_hoodOpen', 5);
+    }
+    if (newHoveredHitbox === 'hitbox_back' && !hasHoveredBack) {
+      playModelClip('back', 'nla_back', 1);
+      hasHoveredBack = true;
+    }
+    if (newHoveredHitbox === 'hitbox_table') {
+      playModelClip('table', 'nla_table', 1);
+    }
+
+// 🔁 Play icon animations with custom speed
+const playAnim = (modelName, clipNames, playSpeed = 1) => {
+  const model = modelRefs[modelName];
+  if (!model || !model.userData.clips) return;
+
+  const mixer = model.userData.mixer || new THREE.AnimationMixer(model);
+  if (!model.userData.mixer) model.userData.mixer = mixer;
+
+  (Array.isArray(clipNames) ? clipNames : [clipNames]).forEach(clipName => {
+    const clip = model.userData.clips.find(c => c.name === clipName);
+    if (!clip) {
+      return console.warn(`❌ Clip "${clipName}" not found on "${modelName}"`);
+    }
+
+    const action = mixer.clipAction(clip);
+    action.setLoop(THREE.LoopPingPong);
+    action.clampWhenFinished = false;
+    action.timeScale = playSpeed; // ⚡ Speed control here
+    action.reset().play();
+
+    console.log(`🔁 Playing "${clipName}" on "${modelName}" @ speed: ${playSpeed}x`);
+  });
+};
+
+
+    switch (newHoveredHitbox) {
+      case 'hitbox_reel': playAnim('icon_reel', 'nla_iconreel', 0.5); break;
+      case 'hitbox_vr': playAnim('icon_vr', 'nla_iconvr', 0.5); break;
+      case 'hitbox_app': playAnim('icon_app', 'nla_iconapp', 0.4); break;
+      case 'hitbox_immersive': playAnim('icon_immersive', 'nla_iconim', 0.5); break;
+    }
+
   }
-  if (newHoveredHitbox === 'hitbox_back' && !hasHoveredBack) {
-    playModelClip('back', 'nla_back', 1);
-    hasHoveredBack = true; // ✅ Trigger only once
-  }
-  if (newHoveredHitbox === 'hitbox_table') {
-    playModelClip('table', 'nla_table', 1);
-  }
-}
 
   lastHoveredHitbox = newHoveredHitbox;
 }
 
 
-  // Update cursor and caption
-  if (newHoveredHitbox === 'hitbox_hood') {
-    captionEl.style.display = 'block';
-    captionEl.style.left = `${e.clientX + 15}px`;
-    captionEl.style.top = `${e.clientY + 15}px`;
-  } else {
-    captionEl.style.display = 'none';
-  }
+
+if (captionMap[newHoveredHitbox]) {
+  captionEl.innerHTML = captionMap[newHoveredHitbox];
+  captionEl.style.display = 'block';
+  captionEl.style.left = `${e.clientX + 15}px`;
+  captionEl.style.top = `${e.clientY + 15}px`;
+} else {
+  captionEl.style.display = 'none';
+}
 
   document.body.style.cursor = newHoveredHitbox ? 'pointer' : 'default';
 
@@ -625,9 +745,59 @@ if (mapping) {
 }
 
 if (obj.name === 'hitbox_menu') {
-  playModelClip('focus_cam', 'nla_cammenu', .65);
+  playModelClip('focus_cam', 'nla_cammenu', 0.65);
+
+  // 🔥 Fully remove hitbox_menu from scene
+  if (obj.parent) {
+    obj.parent.remove(obj);
+    console.log('🧹 hitbox_menu removed from scene');
+  }
+
+  obj.userData.disabled = true;
+
+  const DELAY_MS = 1000;
+  setTimeout(() => {
+    ['hitbox_app', 'hitbox_vr', 'hitbox_immersive', 'hitbox_reel'].forEach(name => {
+      const hitbox = modelRefs['menu']?.getObjectByName(name);
+      if (hitbox) {
+        hitbox.visible = true;
+        hitbox.userData.disabled = false;
+        console.log(`🟢 Delayed unlock: ${name}`);
+      } else {
+        console.warn(`❌ Hitbox not found: ${name}`);
+      }
+    });
+
+    const menuModel = modelRefs['menu'];
+    if (menuModel) {
+      menuModel.visible = false;
+      console.log('⏱️ menu.glb hidden after delay');
+      ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel'].forEach(iconName => {
+      const icon = modelRefs[iconName];
+      if (icon) {
+        icon.visible = true;
+        console.log(`✨ Icon "${iconName}" made visible`);
+      } else {
+        console.warn(`❌ Icon model "${iconName}" not found`);
+      }
+    });
+    }
+
+  }, DELAY_MS);
 }
 
+
+
+if (obj.name === 'hitbox_reel') {
+  console.log('🔗 hitbox_reel clicked → Opening YouTube...');
+  window.open('https://www.youtube.com/watch?v=hFs0UhpgJSE', '_blank');
+  return;
+}
+
+
+if (obj.name === 'hitbox_guide') {
+  playModelClip('focus_cam', 'nla_camguide', .65);
+}
 
 if (obj.name === 'hitbox_back') {
   console.log('🎯 hitbox_back clicked → move to cam_custom + play "nla_camback"');
@@ -683,7 +853,9 @@ function animate() {
 
   // mixer animation
 
-['generator', 'lamp', 'back', 'table', 'menu', 'focus_cam'].forEach(name => {
+['generator', 'lamp', 'back', 'table', 'menu', 'focus_cam', 'robot',
+  'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive'
+].forEach(name => {
   const model = modelRefs[name];
   const mixer = model?.userData?.mixer;
   if (mixer) mixer.update(delta);
