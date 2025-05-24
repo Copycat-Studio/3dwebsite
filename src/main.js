@@ -1,6 +1,7 @@
 // === Import Three.js Modules ===
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { RGBELoader } from 'three/examples/jsm/Addons.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { Tween, Easing, Group } from '@tweenjs/tween.js';
 const TWEEN = {
@@ -49,10 +50,16 @@ function updateDebugMarker() {
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setClearColor(0x888888);
+//BACKGROUND
+renderer.setClearColor(0x040348);
 renderer.shadowMap.enabled = true;
 document.body.style.margin = '0';
 document.body.appendChild(renderer.domElement);
+renderer.domElement.style.outline = 'none';
+renderer.domElement.style.webkitTapHighlightColor = 'transparent';
+renderer.domElement.style.touchAction = 'none';
+renderer.domElement.style.userSelect = 'none';
+
 
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -64,7 +71,13 @@ controls.maxDistance = 9;
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.75));
 
+//Loading part
+
 const loadingManager = new THREE.LoadingManager();
+const rgbeloader = new RGBELoader();
+
+renderer.outputEncoding = THREE.sRGBEncoding;
+//renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
 loadingManager.onError = function(url) {
   console.error("Got a problem loading: ${url");
@@ -115,10 +128,78 @@ let mainCamTransform = null;
 let swapTimer = 0;
 let hoodHoverLocked = false;
 let hasHoveredBack = false;
-
-// === Enhanced Load State Flags ===
 let domReady = false;
 let canvasReady = false;
+
+function resetSceneState() {
+  console.log('🔁 Reset triggered (button or ESC)...');
+  
+  // 👇 Hide reset button
+  const resetBtn = document.getElementById('reset-btn');
+  if (resetBtn) {
+    resetBtn.style.display = 'none';
+    console.log('🔒 Reset button hidden again');
+  }
+
+  reverseAllCamClips();
+
+  if (mainCamTransform) {
+    tweenToCamera(mainCamTransform);
+  }
+
+  currentFocus = null;
+  controls.target.set(0, 0, 0);
+  controls.enabled = true;
+
+  hoodHoverLocked = false;
+  hasHoveredBack = false;
+
+  if (modelRefs['sign1'] && modelRefs['sign2']) {
+    modelRefs['sign1'].visible = true;
+    modelRefs['sign2'].visible = false;
+  }
+
+  const hood = modelRefs['hood'];
+  if (hood) {
+    const removed = hood.getObjectByName('hitbox_hood');
+    if (!removed) {
+      const hitbox = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 1, 1),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      hitbox.name = 'hitbox_hood';
+      hitbox.userData.isHitbox = true;
+      hood.add(hitbox);
+      console.log('♻️ Re-added hitbox_hood');
+    }
+  }
+
+  console.log('✅ Reset complete.');
+}
+
+function applySaturationEffect(modelName, enabled = true) {
+  const model = modelRefs[modelName];
+  if (!model) return;
+
+  model.traverse(child => {
+    if (child.isMesh && child.material) {
+      const mat = child.material;
+      if (!mat.originalColor && mat.color) {
+        mat.originalColor = mat.color.clone(); // store original
+      }
+
+      if (enabled) {
+        mat.color.setRGB(
+          mat.originalColor.r * .5, // boost RGB slightly
+          mat.originalColor.g * 0.1,
+          mat.originalColor.b * 0.1
+        );
+      } else {
+        mat.color.copy(mat.originalColor);
+      }
+    }
+  });
+}
 
 function checkEverythingLoaded() {
   if (domReady && canvasReady && loadedCount === modelNames.length) {
@@ -146,7 +227,6 @@ document.addEventListener('DOMContentLoaded', () => {
   //}
   checkEverythingLoaded();
 });
-
 
 const observer = new MutationObserver(() => {
   if (renderer.domElement && document.body.contains(renderer.domElement)) {
@@ -491,61 +571,17 @@ const waitForHood = setInterval(() => {
   }
 }, 100);
 
-
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    console.log('🔁 ESC pressed → resetting scene state...');
-     reverseAllCamClips();
-     
-    // 🔁 Move camera to original default cam
-    if (mainCamTransform) {
-      tweenToCamera(mainCamTransform);
-    }
-
-    // 🔄 Clear focus & orbit
-    currentFocus = null;
-    controls.target.set(0, 0, 0); // center orbit (or your default)
-    controls.enabled = true;
-
-    // 🔓 Unlock UI logic
-    hoodHoverLocked = false;
-    hasHoveredBack = false;
-
-    // ✅ Reset visibility for signs if needed
-    if (modelRefs['sign1'] && modelRefs['sign2']) {
-      modelRefs['sign1'].visible = true;
-      modelRefs['sign2'].visible = false;
-    }
-
-    // 🧹 Re-add any hitboxes you previously removed (example: hood)
-    const hood = modelRefs['hood'];
-    if (hood) {
-      const removed = hood.getObjectByName('hitbox_hood');
-      if (!removed) {
-        // 👁️ recreate hitbox only if needed
-        const hitbox = new THREE.Mesh(
-          new THREE.BoxGeometry(1, 1, 1),
-          new THREE.MeshBasicMaterial({ visible: false })
-        );
-        hitbox.name = 'hitbox_hood';
-        hitbox.userData.isHitbox = true;
-        hood.add(hitbox);
-        console.log('♻️ Re-added hitbox_hood');
-      }
-    }
-
-    // 🛑 Optionally stop any animations?
-    // if (modelRefs['focus_cam']?.userData?.mixer) modelRefs['focus_cam'].userData.mixer.stopAllAction();
-
-    console.log('✅ Reset complete.');
+    resetSceneState();
   }
 
   if (e.key === 'l' || e.key === 'L') {
-    logFocusPosition(); // 🔍 press "L" to log
+    logFocusPosition();
   }
 });
 
-
+document.getElementById('reset-btn')?.addEventListener('click', resetSceneState);
 
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
@@ -620,10 +656,22 @@ if (newHoveredHitbox !== lastHoveredHitbox) {
     };
 
     switch (lastHoveredHitbox) {
-      case 'hitbox_reel': stopAnim('icon_reel'); break;
-      case 'hitbox_vr': stopAnim('icon_vr'); break;
-      case 'hitbox_app': stopAnim('icon_app'); break;
-      case 'hitbox_immersive': stopAnim('icon_immersive'); break;
+      case 'hitbox_reel':
+        stopAnim('icon_reel');
+        applySaturationEffect('icon_reel', false);
+        break;
+      case 'hitbox_vr':
+        stopAnim('icon_vr');
+        applySaturationEffect('icon_vr', false);
+        break;
+      case 'hitbox_app':
+        stopAnim('icon_app');
+        applySaturationEffect('icon_app', false);
+        break;
+      case 'hitbox_immersive':
+        stopAnim('icon_immersive');
+        applySaturationEffect('icon_immersive', false);
+        break;
     }
   }
 
@@ -667,12 +715,25 @@ const playAnim = (modelName, clipNames, playSpeed = 1) => {
 };
 
 
-    switch (newHoveredHitbox) {
-      case 'hitbox_reel': playAnim('icon_reel', 'nla_iconreel', 0.5); break;
-      case 'hitbox_vr': playAnim('icon_vr', 'nla_iconvr', 0.5); break;
-      case 'hitbox_app': playAnim('icon_app', 'nla_iconapp', 0.4); break;
-      case 'hitbox_immersive': playAnim('icon_immersive', 'nla_iconim', 0.5); break;
-    }
+  switch (newHoveredHitbox) {
+  case 'hitbox_reel':
+    playAnim('icon_reel', 'nla_iconreel', 0.5);
+    applySaturationEffect('icon_reel', false);
+    break;
+  case 'hitbox_vr':
+    playAnim('icon_vr', 'nla_iconvr', 0.5);
+    applySaturationEffect('icon_vr', true);
+    break;
+  case 'hitbox_app':
+    playAnim('icon_app', 'nla_iconapp', 0.4);
+    applySaturationEffect('icon_app', true);
+    break;
+  case 'hitbox_immersive':
+    playAnim('icon_immersive', 'nla_iconim', 0.5);
+    applySaturationEffect('icon_immersive', true);
+    break;
+}
+
 
   }
 
@@ -714,6 +775,14 @@ function onClick() {
 
   console.log(`🖱️ Clicked: ${obj.name}`);
 
+  // Show reset button after any hitbox_ is clicked
+const resetBtn = document.getElementById('reset-btn');
+if (resetBtn && resetBtn.style.display === 'none') {
+  resetBtn.style.display = 'block';
+  console.log('🔓 Reset button revealed');
+}
+
+
 const mapping = hitboxMap[obj.name];
 if (mapping) {
   const { cam, model } = mapping;
@@ -754,6 +823,7 @@ if (obj.name === 'hitbox_menu') {
   }
 
   obj.userData.disabled = true;
+  controls.enabled = false;
 
   const DELAY_MS = 1000;
   setTimeout(() => {
@@ -797,6 +867,7 @@ if (obj.name === 'hitbox_reel') {
 
 if (obj.name === 'hitbox_guide') {
   playModelClip('focus_cam', 'nla_camguide', .65);
+   controls.enabled = false;
 }
 
 if (obj.name === 'hitbox_back') {
