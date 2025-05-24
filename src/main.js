@@ -89,14 +89,14 @@ const statusText = document.querySelector('.status-text');
 const modelRefs = {};
 const camTargets = {};
 const captionMap = {
-  'hitbox_hood': 'open<br>the engine',
-  'hitbox_menu': 'click to see<br>portfolio',
-  'hitbox_back': 'click to custom',
-  'hitbox_guide': 'how to play',
+  'hitbox_hood': 'Open<br>The Engine',
+  'hitbox_menu': 'Click To See<br>Portfolio',
+  'hitbox_back': 'Click To Custom',
+  'hitbox_guide': 'How To Play',
   'hitbox_app': 'COMING<br>SOON',
-  'hitbox_reel': 'showreel',
+  'hitbox_reel': 'Showreel',
   'hitbox_vr': 'COMING<br>SOON',
-  'hitbox_immersive': 'COMING<br>SOON'
+  'hitbox_immersive': 'CGI by Curio'
 };
 const hitboxMap = {
   'hitbox_back': {
@@ -730,7 +730,7 @@ const playAnim = (modelName, clipNames, playSpeed = 1) => {
     break;
   case 'hitbox_immersive':
     playAnim('icon_immersive', 'nla_iconim', 0.5);
-    applySaturationEffect('icon_immersive', true);
+    applySaturationEffect('icon_immersive', false);
     break;
 }
 
@@ -861,6 +861,12 @@ if (obj.name === 'hitbox_menu') {
 if (obj.name === 'hitbox_reel') {
   console.log('🔗 hitbox_reel clicked → Opening YouTube...');
   window.open('https://www.youtube.com/watch?v=hFs0UhpgJSE', '_blank');
+  return;
+}
+
+if (obj.name === 'hitbox_immersive') {
+  console.log('🔗 hitbox_immersive clicked → Opening Curio...');
+  window.open('https://docs.google.com/presentation/d/1JyZSAfuxU9JmbL4kAX0L-cBGmZjSFYTiRclx8Bv0fhg/preview?slide=id.g34e9049caeb_0_12', '_blank');
   return;
 }
 
