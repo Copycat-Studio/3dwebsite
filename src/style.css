@@ -20,62 +20,48 @@ canvas {
   display: block;
   position: relative;
   z-index: 0;
-  -webkit-tap-highlight-color: transparent;
   outline: none;
   touch-action: none;
   user-select: none;
 }
 
 body {
-  -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
 
 
-/* ================================
-   🚀 Loading Overlay (STATIC)
-================================= */
-loading {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: #322F7D; /* match the background color */
-  color: #fff;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  z-index: 99999;
-  font-family: 'Helvetica Neue', sans-serif;
+#progress-bar {
+  width: 30%;
+  height: 50px;
+  border-radius: 10px;
+  overflow: hidden;
+  background-color: #111;
+  transition: all 0.3s ease-in-out;
 }
 
-.loader-logo {
-  width: 220px;
-  margin-bottom: 20px;
+#progress-bar::-webkit-progress-value {
+  background-color: #00f5cc;
 }
 
-.percent-text {
-  font-size: 3rem;
-  font-weight: 600;
-  margin-bottom: 12px;
+#progress-bar::-webkit-progress-bar {
+  background-color: #333;
 }
 
-.status-text {
-  font-size: 1.1rem;
-  opacity: 0.85;
-  margin-bottom: 20px;
-}
-
-.bottom-note {
-  position: absolute;
-  bottom: 16px;
+.caption-text {
+  font-size: 1rem;
+  color: #ffffff;
+  margin-top: 1rem;
+  font-family: 'Orbitron', sans-serif;
   text-align: center;
-  font-size: 0.75rem;
-  color: #7be0df;
-  width: 100%;
+  opacity: 0.85;
 }
+
+label {
+  color: #00f5cc;
+  font-size: 1.6rem;
+  font-family: 'Orbitron', sans-serif;
+}
+
 
 
 
@@ -158,4 +144,5 @@ button:focus-visible {
     transform: translateX(-50%);
   }
 }
+
 

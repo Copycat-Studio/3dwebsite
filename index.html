@@ -12,7 +12,7 @@
         padding: 0;
         overflow: hidden;
         height: 100%;
-      }
+      /* } */
       .progress-bar-container {
         position: absolute;
         left: 50%;
@@ -20,7 +20,7 @@
         transform: translate(-50%, -50%);
         width: 100%;
         height: 100%;
-        background-color: rgba(0, 0, 0, 1);
+        background-color: rgb(255, 113, 18);
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -30,12 +30,14 @@
       #progress-bar {
         width: 30%;
         margin-top: 0.5%;
-        height: 2%;
+        height: 5%;
+        transition: all 2s ease-in-out;
       }
 
       label {
         color: white;
         font-size: 2rem;
+        font-family: 'Orbitron', sans-serif;
       }
 
       canvas {
@@ -54,14 +56,19 @@
       transform: translateX(-50%);
     }
   }
-
+      }
     </style>
   </head>
 
   
   <body>
 
-<!-- HTML (in index.html or dynamically created) -->
+
+<div class="progress-bar-container">
+        <label for="progress-bar">preparing...</label>
+        <progress id="progress-bar" value="0" max="100"></progress>
+        <p id="progress-caption" class="caption-text">Waiting for assets...</p>
+    </div>
 
 <div id="hood-caption" style="
   position: fixed;
@@ -96,9 +103,6 @@
 ">
   🔁 Reset
 </button>
-
-
-  <!-- canvas and 3D scripts load below -->
   <script type="module" src="/src/main.js"></script>
   </body>
 </html>

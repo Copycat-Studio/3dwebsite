@@ -1,7 +1,7 @@
 // === Import Three.js Modules ===
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
-import { RGBELoader } from 'three/examples/jsm/Addons.js';
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { Tween, Easing, Group } from '@tweenjs/tween.js';
 const TWEEN = {
@@ -16,7 +16,6 @@ const scene = new THREE.Scene();
 const clock = new THREE.Clock();
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
 scene.add(camera);
-const USE_LOADING_SCREEN = true; // ⬅️ flip to true to enable
 const animationSpeeds = {
   generator: 1,
   lamp: 0.3,
@@ -56,7 +55,6 @@ renderer.shadowMap.enabled = true;
 document.body.style.margin = '0';
 document.body.appendChild(renderer.domElement);
 renderer.domElement.style.outline = 'none';
-renderer.domElement.style.webkitTapHighlightColor = 'transparent';
 renderer.domElement.style.touchAction = 'none';
 renderer.domElement.style.userSelect = 'none';
 
@@ -74,18 +72,50 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.75));
 //Loading part
 
 const loadingManager = new THREE.LoadingManager();
-const rgbeloader = new RGBELoader();
+const progressBar = document.getElementById('progress-bar');
+const progressBarContainer = document.querySelector('.progress-bar-container');
+const progressCaption = document.getElementById('progress-caption');
+
+// loadingManager.onStart = function(url, item, total) {
+//     console.log(`Started loading: ${url}`);
+// }
+
+loadingManager.onProgress = function (url, loaded, total) {
+  if (progressBar) {
+    progressBar.value = (loaded / total) * 100;
+  }
+  if (progressCaption) {
+    const file = url.split('/').pop();
+    progressCaption.textContent = `Loading: ${file} (${loaded}/${total})`;
+  }
+}
+
+loadingManager.onLoad = function () {
+  if (progressCaption) {
+    progressCaption.textContent = '✅ All assets loaded.';
+  }
+  setTimeout(() => {
+    if (progressBarContainer) progressBarContainer.style.display = 'none';
+  }, 300);
+}
+
+// loadingManager.onError = function(url) {
+//     console.error(`Got a problem loading: ${url}`);
+// }
+
+const gltfLoader = new GLTFLoader(loadingManager);
+
+const rgbeLoader = new RGBELoader(loadingManager);
+
 
 renderer.outputEncoding = THREE.sRGBEncoding;
 //renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
 loadingManager.onError = function(url) {
-  console.error("Got a problem loading: ${url");
+  console.error("Got a problem loading: ${url}");
 } 
 
 const loader = new GLTFLoader(loadingManager);
-const percentText = document.querySelector('.percent-text');
-const statusText = document.querySelector('.status-text');
 const modelRefs = {};
 const camTargets = {};
 const captionMap = {
@@ -128,8 +158,8 @@ let mainCamTransform = null;
 let swapTimer = 0;
 let hoodHoverLocked = false;
 let hasHoveredBack = false;
-let domReady = false;
-let canvasReady = false;
+let inputLocked = false;
+
 
 function resetSceneState() {
   console.log('🔁 Reset triggered (button or ESC)...');
@@ -174,6 +204,41 @@ function resetSceneState() {
     }
   }
 
+  const menuModel = modelRefs['menu'];
+if (menuModel) {
+  const hitboxMenu = menuModel.getObjectByName('hitbox_menu');
+  if (!hitboxMenu) {
+    // 🔧 Re-create if missing (was removed from scene)
+    const newHitbox = new THREE.Mesh(
+      new THREE.BoxGeometry(1, 1, 1),
+      new THREE.MeshBasicMaterial({ visible: false })
+    );
+    newHitbox.name = 'hitbox_menu';
+    newHitbox.userData.isHitbox = true;
+    newHitbox.userData.disabled = false;
+    menuModel.add(newHitbox);
+    console.log('♻️ hitbox_menu re-added');
+  } else {
+    hitboxMenu.visible = true;
+    hitboxMenu.userData.disabled = false;
+    console.log('🔓 hitbox_menu restored');
+  }
+}
+
+['hitbox_app', 'hitbox_vr', 'hitbox_immersive', 'hitbox_reel'].forEach(name => {
+  const hitbox = modelRefs['menu']?.getObjectByName(name);
+  if (hitbox) {
+    hitbox.visible = false;
+    hitbox.userData.disabled = true;
+  }
+});
+
+['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel'].forEach(iconName => {
+  const icon = modelRefs[iconName];
+  if (icon) icon.visible = false;
+});
+
+
   console.log('✅ Reset complete.');
 }
 
@@ -200,44 +265,6 @@ function applySaturationEffect(modelName, enabled = true) {
     }
   });
 }
-
-function checkEverythingLoaded() {
-  if (domReady && canvasReady && loadedCount === modelNames.length) {
-    console.log('✅ All assets and DOM fully loaded!');
-
-   // if (USE_LOADING_SCREEN) {
-   //   const loadingEl = document.getElementById('loading');
-   //   if (loadingEl) {
-   //     loadingEl.remove();
-   //     console.log('🧹 Loader removed');
-   //   } else {
-   //     console.warn('⚠️ #loading not found in DOM.');
-   //   }
-   // }
-  }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  domReady = true;
-  //if (!USE_LOADING_SCREEN) {
-  //  const loadingEl = document.getElementById('loading');
-  //  if (loadingEl) {
-  //    loadingEl.remove(); // 💣 kill instantly if disabled
-  //  }
-  //}
-  checkEverythingLoaded();
-});
-
-const observer = new MutationObserver(() => {
-  if (renderer.domElement && document.body.contains(renderer.domElement)) {
-    canvasReady = true;
-    console.log('🖼️ WebGL canvas ready');
-    observer.disconnect();
-    checkEverythingLoaded();
-  }
-});
-
-observer.observe(document.body, { childList: true, subtree: true });
 
 window.THREE = THREE;
 window.modelRefs = modelRefs;
@@ -432,23 +459,6 @@ const modelNames = [
   'hitbox_reel', 'background',
   'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive'
 ];
-
-const loadingText = document.querySelector('.loading-text');
-
-loader.manager.onProgress = (url, loaded, total) => {
-  const percent = Math.round((loaded / total) * 100);
-  if (percentText) percentText.textContent = `${percent}%`;
-  if (statusText) statusText.textContent = `Loading ${url.split('/').pop()}...`;
-};
-
-loader.manager.onLoad = () => {
-  console.log('✅ All assets loaded (onLoad manager)');
-  if (USE_LOADING_SCREEN) {
-    const loadingEl = document.getElementById('loading');
-    loadingEl?.remove();
-  }
-};
-
 
 function loadModel(name) {
   loader.load(`/models/${name}.glb`, (gltf) => {
@@ -758,6 +768,9 @@ if (captionMap[newHoveredHitbox]) {
 
 
 function onClick() {
+
+  if (inputLocked) return;
+
   raycaster.setFromCamera(mouse, camera);
   const intersects = raycaster.intersectObjects(scene.children, true);
   if (!intersects.length) return;
@@ -814,17 +827,19 @@ if (mapping) {
 }
 
 if (obj.name === 'hitbox_menu') {
+  if (inputLocked) return; // ⛔ prevent spamming
+  
+  inputLocked = true; // 🔒 lock input
+  setTimeout(() => inputLocked = false, 1200); // 🔓 unlock after animations + buffer
+
   playModelClip('focus_cam', 'nla_cammenu', 0.65);
 
-  // 🔥 Fully remove hitbox_menu from scene
-  if (obj.parent) {
-    obj.parent.remove(obj);
-    console.log('🧹 hitbox_menu removed from scene');
-  }
-
+  // Remove it early to prevent re-taps
+  if (obj.parent) obj.parent.remove(obj);
   obj.userData.disabled = true;
   controls.enabled = false;
 
+  // 🚀 Delayed reveal
   const DELAY_MS = 1000;
   setTimeout(() => {
     ['hitbox_app', 'hitbox_vr', 'hitbox_immersive', 'hitbox_reel'].forEach(name => {
@@ -832,29 +847,20 @@ if (obj.name === 'hitbox_menu') {
       if (hitbox) {
         hitbox.visible = true;
         hitbox.userData.disabled = false;
-        console.log(`🟢 Delayed unlock: ${name}`);
-      } else {
-        console.warn(`❌ Hitbox not found: ${name}`);
       }
     });
 
     const menuModel = modelRefs['menu'];
     if (menuModel) {
       menuModel.visible = false;
-      console.log('⏱️ menu.glb hidden after delay');
       ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel'].forEach(iconName => {
-      const icon = modelRefs[iconName];
-      if (icon) {
-        icon.visible = true;
-        console.log(`✨ Icon "${iconName}" made visible`);
-      } else {
-        console.warn(`❌ Icon model "${iconName}" not found`);
-      }
-    });
+        const icon = modelRefs[iconName];
+        if (icon) icon.visible = true;
+      });
     }
-
   }, DELAY_MS);
 }
+
 
 
 
@@ -908,9 +914,7 @@ window.addEventListener('touchstart', (e) => {
   const touch = e.touches[0];
   mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
-
-  // Reuse raycasting logic
-  onClick();
+  onClick(); // 📱 Reuse same logic
 });
 
 
