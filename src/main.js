@@ -48,7 +48,14 @@ function updateDebugMarker() {
 }
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
+const pmremGenerator = new THREE.PMREMGenerator(renderer);
+pmremGenerator.compileEquirectangularShader();
 renderer.setSize(window.innerWidth, window.innerHeight);
+
+renderer.toneMapping = THREE.ReinhardToneMapping; // 🧪 Enable tone mapping
+renderer.toneMappingExposure = .7;                 // 🔅 Lower = dimmer (try 0.3–0.7)
+renderer.outputEncoding = THREE.sRGBEncoding;       // ✅ for HDRI color accuracy
+
 //BACKGROUND
 renderer.setClearColor(0x040348);
 renderer.shadowMap.enabled = true;
@@ -57,7 +64,6 @@ document.body.appendChild(renderer.domElement);
 renderer.domElement.style.outline = 'none';
 renderer.domElement.style.touchAction = 'none';
 renderer.domElement.style.userSelect = 'none';
-
 
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -111,9 +117,22 @@ const rgbeLoader = new RGBELoader(loadingManager);
 renderer.outputEncoding = THREE.sRGBEncoding;
 //renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
+rgbeLoader.load('/textures/shanghai_bund_1k.hdr', function (hdrEquirect) {
+  const envMap = pmremGenerator.fromEquirectangular(hdrEquirect).texture;
+
+  scene.environment = envMap; // 🌐 Lighting
+  scene.background = hdrEquirect; // 🖼️ Optional visual backdrop
+
+  hdrEquirect.dispose(); // ♻️ Free GPU mem if not used as background
+  pmremGenerator.dispose(); // 🧼 Done generating
+  console.log('🔆 PMREM HDRI environment applied');
+});
+
+
 loadingManager.onError = function(url) {
   console.error("Got a problem loading: ${url}");
 } 
+
 
 const loader = new GLTFLoader(loadingManager);
 const modelRefs = {};
@@ -151,15 +170,12 @@ const hitboxMap = {
   }
 };
 
-
-
 let currentFocus = null;
 let mainCamTransform = null;
 let swapTimer = 0;
 let hoodHoverLocked = false;
 let hasHoveredBack = false;
 let inputLocked = false;
-
 
 function resetSceneState() {
   console.log('🔁 Reset triggered (button or ESC)...');
@@ -466,6 +482,15 @@ function loadModel(name) {
     model.name = name.toLowerCase();
     scene.add(model);
     modelRefs[model.name] = model;
+
+    // 💡 Dim HDRI lighting on all mesh materials
+model.traverse(child => {
+  if (child.isMesh && child.material && 'envMapIntensity' in child.material) {
+    child.material.envMapIntensity = 0; // 🌓 Tweak 0.0–1.0 as needed
+    child.material.needsUpdate = true;
+  }
+});
+    
     // 🔒 Hide icon_* models on load
 if (['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel'].includes(model.name)) {
   model.visible = false;
