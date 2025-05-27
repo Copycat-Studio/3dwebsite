@@ -20,7 +20,9 @@ const animationSpeeds = {
   generator: 1,
   lamp: 0.3,
   menu: 0.5,
-  robot: 0.5
+  robot: 0.4,
+  robot1: 0.4,
+  robot2: 0.4
 
 };
 const DEBUG = true; // ✅ flip to false to silence logs
@@ -52,12 +54,12 @@ const pmremGenerator = new THREE.PMREMGenerator(renderer);
 pmremGenerator.compileEquirectangularShader();
 renderer.setSize(window.innerWidth, window.innerHeight);
 
-renderer.toneMapping = THREE.ReinhardToneMapping; // 🧪 Enable tone mapping
-renderer.toneMappingExposure = .7;                 // 🔅 Lower = dimmer (try 0.3–0.7)
-renderer.outputEncoding = THREE.sRGBEncoding;       // ✅ for HDRI color accuracy
+renderer.toneMapping = THREE.ReinhardToneMapping; 
+renderer.toneMappingExposure = 1;                 
+renderer.outputEncoding = THREE.sRGBEncoding;      
 
 //BACKGROUND
-renderer.setClearColor(0x040348);
+renderer.setClearColor(0x17021F);
 renderer.shadowMap.enabled = true;
 document.body.style.margin = '0';
 document.body.appendChild(renderer.domElement);
@@ -73,7 +75,7 @@ controls.maxPolarAngle = Math.PI / 2;
 controls.minDistance = 1.5;
 controls.maxDistance = 9;
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+scene.add(new THREE.AmbientLight(0xffffff, 0));
 
 //Loading part
 
@@ -81,10 +83,6 @@ const loadingManager = new THREE.LoadingManager();
 const progressBar = document.getElementById('progress-bar');
 const progressBarContainer = document.querySelector('.progress-bar-container');
 const progressCaption = document.getElementById('progress-caption');
-
-// loadingManager.onStart = function(url, item, total) {
-//     console.log(`Started loading: ${url}`);
-// }
 
 loadingManager.onProgress = function (url, loaded, total) {
   if (progressBar) {
@@ -105,32 +103,37 @@ loadingManager.onLoad = function () {
   }, 300);
 }
 
-// loadingManager.onError = function(url) {
-//     console.error(`Got a problem loading: ${url}`);
-// }
-
 const gltfLoader = new GLTFLoader(loadingManager);
 
 const rgbeLoader = new RGBELoader(loadingManager);
 
 
-renderer.outputEncoding = THREE.sRGBEncoding;
-//renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
-rgbeLoader.load('/textures/shanghai_bund_1k.hdr', function (hdrEquirect) {
+rgbeLoader.load('/textures/hdr.hdr', function (hdrEquirect) {
   const envMap = pmremGenerator.fromEquirectangular(hdrEquirect).texture;
 
   scene.environment = envMap; // 🌐 Lighting
-  scene.background = hdrEquirect; // 🖼️ Optional visual backdrop
+  scene.background = null;                                      
 
   hdrEquirect.dispose(); // ♻️ Free GPU mem if not used as background
   pmremGenerator.dispose(); // 🧼 Done generating
   console.log('🔆 PMREM HDRI environment applied');
 });
 
+function setWorldPosition(mesh, worldPos) {
+  if (!mesh.parent) {
+    console.warn('⚠️ Mesh has no parent — cannot convert to local');
+    return;
+  }
+
+  const localPos = new THREE.Vector3();
+  mesh.parent.worldToLocal(localPos.copy(worldPos));
+  mesh.position.copy(localPos);
+}
+
 
 loadingManager.onError = function(url) {
-  console.error("Got a problem loading: ${url}");
+  console.error(`Got a problem loading: ${url}`);
 } 
 
 
@@ -196,7 +199,6 @@ function resetSceneState() {
   currentFocus = null;
   controls.target.set(0, 0, 0);
   controls.enabled = true;
-
   hoodHoverLocked = false;
   hasHoveredBack = false;
 
@@ -220,66 +222,70 @@ function resetSceneState() {
     }
   }
 
-  const menuModel = modelRefs['menu'];
+
+
+const menuModel = modelRefs['menu'];
 if (menuModel) {
-  const hitboxMenu = menuModel.getObjectByName('hitbox_menu');
-  if (!hitboxMenu) {
-    // 🔧 Re-create if missing (was removed from scene)
-    const newHitbox = new THREE.Mesh(
-      new THREE.BoxGeometry(1, 1, 1),
-      new THREE.MeshBasicMaterial({ visible: false })
-    );
-    newHitbox.name = 'hitbox_menu';
-    newHitbox.userData.isHitbox = true;
-    newHitbox.userData.disabled = false;
-    menuModel.add(newHitbox);
-    console.log('♻️ hitbox_menu re-added');
-  } else {
-    hitboxMenu.visible = true;
-    hitboxMenu.userData.disabled = false;
-    console.log('🔓 hitbox_menu restored');
+  menuModel.visible = true;
+
+  if (menuModel.userData.clips && menuModel.userData.clips.length > 0) {
+    const clip = menuModel.userData.clips[0];
+    const mixer = menuModel.userData.mixer || new THREE.AnimationMixer(menuModel);
+    const action = mixer.clipAction(clip);
+    action.reset();
+    action.setLoop(THREE.LoopPingPong);
+    action.clampWhenFinished = false;
+    action.play();
+
+    menuModel.userData.mixer = mixer;
+  }
+
+ let hitboxMenu = menuModel.getObjectByName('hitbox_menu');
+if (!hitboxMenu) {
+
+  const geometry = new THREE.BoxGeometry(1, 1, 1);
+  const material = new THREE.MeshBasicMaterial({ visible: false });
+  hitboxMenu = new THREE.Mesh(geometry, material);
+  hitboxMenu.name = 'hitbox_menu';
+  hitboxMenu.visible = true;
+  hitboxMenu.userData.isHitbox = true;
+  hitboxMenu.userData.disabled = false;
+
+
+  menuModel.add(hitboxMenu);
+
+} else {
+
+  hitboxMenu.visible = true;
+  hitboxMenu.userData.disabled = false;
+
+
+  if (!menuModel.children.includes(hitboxMenu)) {
+    menuModel.add(hitboxMenu);
   }
 }
 
-['hitbox_app', 'hitbox_vr', 'hitbox_immersive', 'hitbox_reel'].forEach(name => {
-  const hitbox = modelRefs['menu']?.getObjectByName(name);
-  if (hitbox) {
-    hitbox.visible = false;
-    hitbox.userData.disabled = true;
-  }
-});
-
-['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel'].forEach(iconName => {
-  const icon = modelRefs[iconName];
-  if (icon) icon.visible = false;
-});
 
 
-  console.log('✅ Reset complete.');
-}
-
-function applySaturationEffect(modelName, enabled = true) {
-  const model = modelRefs[modelName];
-  if (!model) return;
-
-  model.traverse(child => {
-    if (child.isMesh && child.material) {
-      const mat = child.material;
-      if (!mat.originalColor && mat.color) {
-        mat.originalColor = mat.color.clone(); // store original
-      }
-
-      if (enabled) {
-        mat.color.setRGB(
-          mat.originalColor.r * .5, // boost RGB slightly
-          mat.originalColor.g * 0.1,
-          mat.originalColor.b * 0.1
-        );
-      } else {
-        mat.color.copy(mat.originalColor);
-      }
+  ['hitbox_app', 'hitbox_vr', 'hitbox_immersive', 'hitbox_reel'].forEach(name => {
+    const hitbox = menuModel.getObjectByName(name);
+    if (hitbox) {
+      hitbox.visible = false;
+      hitbox.userData.disabled = true;
     }
   });
+
+
+  ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel'].forEach(iconName => {
+    const icon = modelRefs[iconName];
+    if (icon) icon.visible = false;
+  });
+
+  menuModel.visible = true;
+  controls.enabled = true;
+
+  console.log('🔁 Menu reset completed');
+}
 }
 
 window.THREE = THREE;
@@ -464,11 +470,10 @@ function logFocusPosition() {
   console.log('🎯 OrbitControls.target @', controls.target.toArray());
 }
 
-
 // === Model Loader ===
 const modelNames = [
-  'car', 'cart', 'lamp', 'hood', 'generator', 'table',
-  'ground', 'robot', 'sign1', 'sign2', 'menu', 'back', 'guide',
+  'car', 'cart', 'lamp', 'hood', 'generator', 'table', 'tablefont',
+  'ground', 'robot', 'robot1', 'robot2', 'sign1', 'sign2', 'menu', 'back', 'guide',
   'cam_engine', 'cam_guide','cam_custom','cam_menu',
   'hitbox_menu', 'hitbox_table', 'hitbox_hood', 'hitbox_back', 
   'hitbox_app', 'removelater', 'focus_cam', 'hitbox_vr', 'hitbox_immersive', 'hitbox_guide',
@@ -509,9 +514,11 @@ console.log(`🌍 World position of "${model.name}":`, worldPos.toArray());
     }
 
         // 🔁 Auto-play looped animation for specific models
-    if (['generator', 'lamp', 'menu', 'robot'].includes(name.toLowerCase()) && gltf.animations?.length > 0) {
+    if (['generator', 'lamp', 'menu', 'robot', 'robot1', 'robot2'].includes(name.toLowerCase()) && gltf.animations?.length > 0) {
   const mixer = new THREE.AnimationMixer(model);
   const loopAction = mixer.clipAction(gltf.animations[0]);
+  
+
   
   const speed = animationSpeeds[name.toLowerCase()] || 1.0; // fallback = 1.0x
   loopAction.setLoop(THREE.LoopPingPong);
@@ -614,6 +621,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'l' || e.key === 'L') {
     logFocusPosition();
   }
+  
 });
 
 document.getElementById('reset-btn')?.addEventListener('click', resetSceneState);
@@ -635,16 +643,25 @@ function playModelClip(modelName, clipName, direction = 1, speed = 1) {
   const mixer = model.userData.mixer || new THREE.AnimationMixer(model);
   const action = mixer.clipAction(clip);
 
+  // Stop previous action
+  if (model.userData.action) {
+    model.userData.action.stop();
+  }
+
   action.reset();
   action.setLoop(THREE.LoopOnce);
   action.clampWhenFinished = true;
   action.timeScale = speed * direction;
   action.play();
 
-  if (!model.userData.mixer) model.userData.mixer = mixer;
+  // Cache mixer/action/clip
+  model.userData.mixer = mixer;
+  model.userData.action = action;
+  model.userData.clip = clip;
 
   console.log(`🎞️ Playing "${clipName}" on "${modelName}" dir: ${direction} speed: ${speed}`);
 }
+
 
 function onMouseMove(e) {
   mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
@@ -679,7 +696,10 @@ if (newHoveredHitbox !== lastHoveredHitbox) {
       playHoodClip('nla_hoodClose', 5);
     }
     if (lastHoveredHitbox === 'hitbox_table') {
-      playModelClip('table', 'nla_tableback', 1);
+      Promise.all([
+  playModelClip('table', 'nla_tableback', 1),
+  playModelClip('tablefont', 'nla_tablerear', 1)
+]);
     }
 
     // 🛑 Stop icon animations
@@ -693,20 +713,16 @@ if (newHoveredHitbox !== lastHoveredHitbox) {
     switch (lastHoveredHitbox) {
       case 'hitbox_reel':
         stopAnim('icon_reel');
-        applySaturationEffect('icon_reel', false);
-        break;
+            break;
       case 'hitbox_vr':
         stopAnim('icon_vr');
-        applySaturationEffect('icon_vr', false);
-        break;
+                break;
       case 'hitbox_app':
         stopAnim('icon_app');
-        applySaturationEffect('icon_app', false);
         break;
       case 'hitbox_immersive':
         stopAnim('icon_immersive');
-        applySaturationEffect('icon_immersive', false);
-        break;
+                break;
     }
   }
 
@@ -722,7 +738,10 @@ if (newHoveredHitbox !== lastHoveredHitbox) {
       hasHoveredBack = true;
     }
     if (newHoveredHitbox === 'hitbox_table') {
-      playModelClip('table', 'nla_table', 1);
+      Promise.all([
+  playModelClip('table', 'nla_table', 1),
+  playModelClip('tablefont', 'nla_tablefront', 1)
+]);
     }
 
 // 🔁 Play icon animations with custom speed
@@ -753,20 +772,16 @@ const playAnim = (modelName, clipNames, playSpeed = 1) => {
   switch (newHoveredHitbox) {
   case 'hitbox_reel':
     playAnim('icon_reel', 'nla_iconreel', 0.5);
-    applySaturationEffect('icon_reel', false);
-    break;
+        break;
   case 'hitbox_vr':
     playAnim('icon_vr', 'nla_iconvr', 0.5);
-    applySaturationEffect('icon_vr', true);
-    break;
+       break;
   case 'hitbox_app':
     playAnim('icon_app', 'nla_iconapp', 0.4);
-    applySaturationEffect('icon_app', true);
-    break;
+      break;
   case 'hitbox_immersive':
     playAnim('icon_immersive', 'nla_iconim', 0.5);
-    applySaturationEffect('icon_immersive', false);
-    break;
+     break;
 }
 
 
@@ -806,10 +821,6 @@ function onClick() {
 // camera movement
 
  if (obj.name?.startsWith('hitbox_')) {
-  if (obj.name === 'hitbox_hood' && obj.userData.disabled) {
-    console.log('🚫 hitbox_hood already removed – click ignored');
-    return;
-  }
 
   console.log(`🖱️ Clicked: ${obj.name}`);
 
@@ -840,31 +851,20 @@ if (mapping) {
     playHoodClip('nla_hoodAction');
     playModelClip('focus_cam', 'nla_camhood', .65);
     hoodHoverLocked = true;
-
-    if (obj.parent) {
-      obj.parent.remove(obj);
-      console.log('🧹 hitbox_hood removed from scene');
-    }
-
     obj.userData.disabled = true;
     controls.enabled = false;
   }
 }
 
 if (obj.name === 'hitbox_menu') {
-  if (inputLocked) return; // ⛔ prevent spamming
-  
-  inputLocked = true; // 🔒 lock input
-  setTimeout(() => inputLocked = false, 1200); // 🔓 unlock after animations + buffer
-
+ 
   playModelClip('focus_cam', 'nla_cammenu', 0.65);
-
-  // Remove it early to prevent re-taps
-  if (obj.parent) obj.parent.remove(obj);
   obj.userData.disabled = true;
   controls.enabled = false;
-
-  // 🚀 Delayed reveal
+  if (inputLocked) return; // ⛔ prevent spamming
+  inputLocked = true;
+  setTimeout(() => inputLocked = false, 1100); // 🔓 unlock after buffer
+  
   const DELAY_MS = 1000;
   setTimeout(() => {
     ['hitbox_app', 'hitbox_vr', 'hitbox_immersive', 'hitbox_reel'].forEach(name => {
@@ -878,6 +878,7 @@ if (obj.name === 'hitbox_menu') {
     const menuModel = modelRefs['menu'];
     if (menuModel) {
       menuModel.visible = false;
+
       ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel'].forEach(iconName => {
         const icon = modelRefs[iconName];
         if (icon) icon.visible = true;
@@ -885,9 +886,6 @@ if (obj.name === 'hitbox_menu') {
     }
   }, DELAY_MS);
 }
-
-
-
 
 if (obj.name === 'hitbox_reel') {
   console.log('🔗 hitbox_reel clicked → Opening YouTube...');
@@ -927,7 +925,6 @@ if (obj.name === 'hitbox_back') {
   }
   return;
 }
-
 }
 }
 
@@ -959,7 +956,7 @@ function animate() {
 
   // mixer animation
 
-['generator', 'lamp', 'back', 'table', 'menu', 'focus_cam', 'robot',
+['generator', 'lamp', 'back', 'table', 'tablefont', 'menu', 'focus_cam', 'robot', 'robot1', 'robot2',
   'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive'
 ].forEach(name => {
   const model = modelRefs[name];
@@ -983,11 +980,7 @@ if (currentFocus) {
   controls.target.copy(pos); // keep orbit synced if enabled
 }
 updateDebugMarker(); // 🧠 add this line here
-controls.update();
 renderer.render(scene, camera);
-
-
-  renderer.render(scene, camera);
 }
 
 animate();
