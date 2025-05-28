@@ -11,6 +11,7 @@ const TWEEN = {
 };
 
 // === Globals ===
+
 const tweenGroup = new Group();
 const scene = new THREE.Scene();
 const clock = new THREE.Clock();
@@ -27,6 +28,7 @@ const animationSpeeds = {
 };
 const DEBUG = true; // ✅ flip to false to silence logs
 window.DEBUG = true; // 👈 make it global
+const hitboxOriginalPositions = {};
 
 if (!DEBUG) {
   console.log = () => {};
@@ -49,13 +51,82 @@ function updateDebugMarker() {
   }
 }
 
+function moveHitboxY(name, toOffsetY = 500, duration = 650) {
+  let hitbox = null;
+
+  for (const model of Object.values(modelRefs)) {
+    const found = model.getObjectByName?.(name);
+    if (found) {
+      hitbox = found;
+      break;
+    }
+  }
+
+  if (!hitbox) {
+    console.warn(`❌ Hitbox "${name}" not found.`);
+    return;
+  }
+
+  // Store original position
+  if (!hitboxOriginalPositions[name]) {
+    hitboxOriginalPositions[name] = hitbox.position.clone();
+  }
+
+  const baseY = hitboxOriginalPositions[name].y;
+  const currentY = hitbox.position.y;
+  const targetY = baseY + toOffsetY;
+
+  // Skip if already at target
+  if (Math.abs(currentY - targetY) < 1e-2) {
+    console.log(`⛔ "${name}" already at Y offset.`);
+    return;
+  }
+
+  new TWEEN.Tween({ y: currentY }, tweenGroup)
+    .to({ y: targetY }, duration)
+    .easing(TWEEN.Easing.Quadratic.Out)
+    .onUpdate(obj => {
+      hitbox.position.y = obj.y;
+    })
+    .start();
+}
+
+function moveModelToOffsetXYZ(modelName, offset = { x: 0, y: 0, z: 0 }, duration = 650) {
+  const model = modelRefs[modelName];
+  if (!model) {
+    console.warn(`❌ Model "${modelName}" not found.`);
+    return;
+  }
+
+  // Cache original position if not already stored
+  if (!hitboxOriginalPositions[modelName]) {
+    hitboxOriginalPositions[modelName] = model.position.clone();
+  }
+
+  const base = hitboxOriginalPositions[modelName];
+  const target = {
+    x: base.x + (offset.x || 0),
+    y: base.y + (offset.y || 0),
+    z: base.z + (offset.z || 0)
+  };
+
+  new TWEEN.Tween({ ...model.position }, tweenGroup)
+    .to(target, duration)
+    .easing(TWEEN.Easing.Quadratic.Out)
+    .onUpdate(obj => {
+      model.position.set(obj.x, obj.y, obj.z);
+    })
+    .start();
+}
+
+
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 const pmremGenerator = new THREE.PMREMGenerator(renderer);
 pmremGenerator.compileEquirectangularShader();
 renderer.setSize(window.innerWidth, window.innerHeight);
 
-renderer.toneMapping = THREE.ReinhardToneMapping; 
-renderer.toneMappingExposure = 1;                 
+renderer.toneMapping = THREE.NoToneMapping;
+renderer.toneMappingExposure = 1;               
 renderer.outputEncoding = THREE.sRGBEncoding;      
 
 //BACKGROUND
@@ -75,7 +146,7 @@ controls.maxPolarAngle = Math.PI / 2;
 controls.minDistance = 1.5;
 controls.maxDistance = 9;
 
-scene.add(new THREE.AmbientLight(0xffffff, 0));
+scene.add(new THREE.AmbientLight(0xffffff, .5));
 
 //Loading part
 
@@ -190,6 +261,23 @@ function resetSceneState() {
     console.log('🔒 Reset button hidden again');
   }
 
+Object.entries(hitboxOriginalPositions).forEach(([name, pos]) => {
+  for (const model of Object.values(modelRefs)) {
+    const hitbox = model.getObjectByName?.(name);
+    if (hitbox) {
+      // 🔁 Animate it *back* to base Y
+      new TWEEN.Tween({ y: hitbox.position.y }, tweenGroup)
+        .to({ y: pos.y }, 1000)
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .onUpdate(obj => {
+          hitbox.position.y = obj.y;
+        })
+        .start();
+      break;
+    }
+  }
+});
+
   reverseAllCamClips();
 
   if (mainCamTransform) {
@@ -243,21 +331,11 @@ if (menuModel) {
  let hitboxMenu = menuModel.getObjectByName('hitbox_menu');
 if (!hitboxMenu) {
 
-  const geometry = new THREE.BoxGeometry(1, 1, 1);
-  const material = new THREE.MeshBasicMaterial({ visible: false });
-  hitboxMenu = new THREE.Mesh(geometry, material);
-  hitboxMenu.name = 'hitbox_menu';
-  hitboxMenu.visible = true;
-  hitboxMenu.userData.isHitbox = true;
-  hitboxMenu.userData.disabled = false;
-
-
   menuModel.add(hitboxMenu);
 
 } else {
 
   hitboxMenu.visible = true;
-  hitboxMenu.userData.disabled = false;
 
 
   if (!menuModel.children.includes(hitboxMenu)) {
@@ -849,7 +927,7 @@ if (mapping) {
   // 🧹 Special logic for hood click
   if (obj.name === 'hitbox_hood') {
     playHoodClip('nla_hoodAction');
-    playModelClip('focus_cam', 'nla_camhood', .65);
+    moveModelToOffsetXYZ('focus_cam', { x: 2.0016531944274902, y: 0.3605214059352875, z: -0.33794140815734863 }, 1000);
     hoodHoverLocked = true;
     obj.userData.disabled = true;
     controls.enabled = false;
@@ -858,8 +936,8 @@ if (mapping) {
 
 if (obj.name === 'hitbox_menu') {
  
-  playModelClip('focus_cam', 'nla_cammenu', 0.65);
-  obj.userData.disabled = true;
+  moveHitboxY('hitbox_menu', 500);
+  moveModelToOffsetXYZ('focus_cam', { x: -0.19776688516139984, y: 1.1592967510223389, z: -0.3411976993083954 }, 1000);
   controls.enabled = false;
   if (inputLocked) return; // ⛔ prevent spamming
   inputLocked = true;
@@ -901,29 +979,14 @@ if (obj.name === 'hitbox_immersive') {
 
 
 if (obj.name === 'hitbox_guide') {
-  playModelClip('focus_cam', 'nla_camguide', .65);
+moveModelToOffsetXYZ('focus_cam', { x: 1.1818594932556152, y: 0.44219231605529785, z: -1.7928889989852905 }, 1000);
    controls.enabled = false;
 }
 
 if (obj.name === 'hitbox_back') {
-  console.log('🎯 hitbox_back clicked → move to cam_custom + play "nla_camback"');
-
-  const camTarget = camTargets['cam_custom'];
-  if (camTarget) {
-    controls.enabled = false;
-
-    // ✅ Lock focus to full model
-    currentFocus = modelRefs['focus_cam'];
-
-    // ✅ Move camera
-    tweenToCamera(camTarget);
-
-    // ✅ Play animation clip
-    playModelClip('focus_cam', 'nla_camback', .65);
-  } else {
-    console.warn('❌ cam_custom not found');
-  }
-  return;
+  console.log('🎯 hitbox_back clicked → move new position');
+moveModelToOffsetXYZ('focus_cam', { x: -2.556675672531128, y: 0.7332350611686707, z: 0 }, 1000);
+controls.enabled = false;
 }
 }
 }
@@ -963,7 +1026,6 @@ function animate() {
   const mixer = model?.userData?.mixer;
   if (mixer) mixer.update(delta);
 });
-
 
 
   swapTimer += delta;
