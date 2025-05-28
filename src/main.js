@@ -38,7 +38,7 @@ if (!DEBUG) {
 
 
 const debugSphere = new THREE.Mesh(
-  new THREE.SphereGeometry(0.05),
+  new THREE.SphereGeometry(0.01),
   new THREE.MeshBasicMaterial({ color: 0xff0000 })
 );
 scene.add(debugSphere);
@@ -144,7 +144,7 @@ controls.enableDamping = true;
 controls.minPolarAngle = Math.PI / 3;
 controls.maxPolarAngle = Math.PI / 2;
 controls.minDistance = 1.5;
-controls.maxDistance = 9;
+controls.maxDistance = 12;
 
 scene.add(new THREE.AmbientLight(0xffffff, .5));
 
@@ -156,14 +156,36 @@ const progressBarContainer = document.querySelector('.progress-bar-container');
 const progressCaption = document.getElementById('progress-caption');
 
 loadingManager.onProgress = function (url, loaded, total) {
+  const progress = (loaded / total) * 100;
+  
+  // Update bar value
   if (progressBar) {
-    progressBar.value = (loaded / total) * 100;
+    progressBar.value = progress;
   }
+
+  // Dynamic label update
+  const label = document.getElementById('progress-label');
+  if (label) {
+    if (progress < 25) {
+      label.textContent = 'On Parking...';
+    } else if (progress < 50) {
+      label.textContent = 'Unpack The Box...';
+    } else if (progress < 75) {
+      label.textContent = 'Turning On Stove...';
+    } else if (progress < 99) {
+      label.textContent = 'Preparing Food...';
+    } else {
+      label.textContent = 'Ready To Serve...';
+    }
+  }
+
+  // Caption update (you already have this)
   if (progressCaption) {
     const file = url.split('/').pop();
     progressCaption.textContent = `Loading: ${file} (${loaded}/${total})`;
   }
-}
+};
+
 
 loadingManager.onLoad = function () {
   if (progressCaption) {
