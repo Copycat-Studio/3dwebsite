@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Copycat 3D Website</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <link rel="icon" href="/favicon.ico" />
     <link rel="stylesheet" href="./style.css" />
     <style>
@@ -12,7 +13,7 @@
         padding: 0;
         overflow: hidden;
         height: 100%;
-      /* } */
+      
       .progress-bar-container {
         position: absolute;
         left: 50%;
@@ -20,7 +21,7 @@
         transform: translate(-50%, -50%);
         width: 100%;
         height: 100%;
-        background-color: rgb(255, 113, 18);
+        background-color:wheat;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -30,15 +31,37 @@
       #progress-bar {
         width: 30%;
         margin-top: 0.5%;
-        height: 5%;
+        height: 3%;
         transition: all 2s ease-in-out;
+  border-radius: 10px;
+  overflow: hidden;
+  background-color: black;
       }
+      
+      
+#progress-bar::-webkit-progress-value {
+  background-color: #f89b27;
+}
+
+#progress-bar::-webkit-progress-bar {
+  background-color: #a4238a;
+}
+      
 
       label {
-        color: white;
-        font-size: 2rem;
+        color: black;
+        font-size: 1.5rem;
         font-family: 'Orbitron', sans-serif;
       }
+
+.caption-text {
+  font-size: 0.8rem;
+  color: #33012b;
+  font-family: 'Orbitron', sans-serif;
+  text-align: center;
+  opacity: 1; /* Max opacity */
+  margin-top: 0.5rem;
+}
 
       canvas {
         display: block;
@@ -56,9 +79,29 @@
       transform: translateX(-50%);
     }
   }
+
+  .loading-logo {
+  width: 150px;
+  height: auto;
+  margin-bottom: 1rem; /* 👈 THIS adds space to label below */
+  animation: pulse 2s ease-in-out infinite;
+  user-select: none;
+  pointer-events: none;
+}
+
+.caption-subtext {
+  font-size: 1rem;
+  color: #33012b;
+  font-family: 'Orbitron', sans-serif;
+  text-align: center;
+  opacity: 1;
+  margin-top: 3rem;
+}
+
+
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-BqMej6Re.js"></script>
+    <script type="module" crossorigin src="/assets/index-DNP-yh6G.js"></script>
   </head>
 
   
@@ -66,9 +109,11 @@
 
 
 <div class="progress-bar-container">
-        <label for="progress-bar">preparing...</label>
+        <img src="/logo.png" alt="Loading Logo" class="loading-logo" />
+        <label for="progress-bar" id="progress-label">preparing...</label>
         <progress id="progress-bar" value="0" max="100"></progress>
         <p id="progress-caption" class="caption-text">Waiting for assets...</p>
+        <p id="progress-subcaption" class="caption-subtext">open this website at desktop, to get full experience</p>
     </div>
 
 <div id="hood-caption" style="
@@ -102,7 +147,7 @@
   z-index: 9999;
   touch-action: manipulation;
 ">
-  🔁 Reset
+  BACK
 </button>
   </body>
 </html>
