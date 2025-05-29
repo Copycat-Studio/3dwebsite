@@ -280,6 +280,7 @@ let currentFocus = null;
 let mainCamTransform = null;
 let swapTimer = 0;
 let hoodHoverLocked = false;
+let backHoverLocked = false;
 let hasHoveredBack = false;
 let inputLocked = false;
 let signsSwapEnabled = true;
@@ -332,6 +333,7 @@ Object.entries(modelRefs).forEach(([name, model]) => {
 
   currentFocus = null;
   hoodHoverLocked = false;
+  backHoverLocked = false;
   hasHoveredBack = false;
 
   // 🧭 Restore sign swap state
@@ -938,7 +940,9 @@ if (newHoveredHitbox !== lastHoveredHitbox) {
   // === Hover out ===
   if (lastHoveredHitbox) {
     console.log(`👋 Hover out: ${lastHoveredHitbox}`);
-
+    if (lastHoveredHitbox === 'hitbox_back' && !backHoverLocked) {
+      playModelClip('back', 'nla_backclose', 1);
+    }
     if (lastHoveredHitbox === 'hitbox_hood' && !hoodHoverLocked) {
       playHoodClip('nla_hoodClose', 5);
     }
@@ -980,8 +984,8 @@ if (newHoveredHitbox !== lastHoveredHitbox) {
     if (newHoveredHitbox === 'hitbox_hood' && !hoodHoverLocked) {
       playHoodClip('nla_hoodOpen', 5);
     }
-    if (newHoveredHitbox === 'hitbox_back' && !hasHoveredBack) {
-      playModelClip('back', 'nla_back', 1);
+    if (newHoveredHitbox === 'hitbox_back' && !backHoverLocked) {
+      playModelClip('back', 'nla_backopen', 1);
       hasHoveredBack = true;
     }
     if (newHoveredHitbox === 'hitbox_table') {
@@ -1163,12 +1167,19 @@ moveModelToOffsetXYZ('focus_cam', { x: 1.1818594932556152, y: 0.4421923160552978
 }
 
 if (obj.name === 'hitbox_back') {
+  if (inputLocked) return; // ⛔ prevent spamming
+  inputLocked = true;
+  setTimeout(() => inputLocked = false, 700);
+  moveHitboxY('hitbox_back', 500);
   console.log('🎯 hitbox_back clicked → move new position');
+playModelClip('back', 'nla_backall', 1);
    launchHitboxLift1();
       launchHitboxLift2();
       launchHitboxLift3();
 moveModelToOffsetXYZ('focus_cam', { x: -2.556675672531128, y: 0.7332350611686707, z: 0 }, 1000);
 controls.enabled = false;
+backHoverLocked = true;
+return;
 }
 
 if (obj.name === 'hitbox_engine') {
