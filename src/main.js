@@ -1095,6 +1095,9 @@ if (mapping) {
 
   // 🧹 Special logic for hood click
   if (obj.name === 'hitbox_hood') {
+    if (inputLocked) return; // ⛔ prevent spamming
+  inputLocked = true;
+  setTimeout(() => inputLocked = false, 700);
     launchHitboxLift1();
       launchHitboxLift2();
     playHoodClip('nla_hoodAction');
@@ -1169,6 +1172,9 @@ controls.enabled = false;
 }
 
 if (obj.name === 'hitbox_engine') {
+  if (inputLocked) return; // ⛔ prevent spamming
+  inputLocked = true;
+  setTimeout(() => inputLocked = false, 700);
   const resetBtn = document.getElementById('reset-btn');
   if (resetBtn) {
     resetBtn.style.display = 'none';
@@ -1190,6 +1196,9 @@ return;
 }
 
 if (obj.name === 'hitbox_engine1') {
+  if (inputLocked) return; // ⛔ prevent spamming
+  inputLocked = true;
+  setTimeout(() => inputLocked = false, 700);
     const resetBtn = document.getElementById('reset-btn');
   if (resetBtn) {
     resetBtn.style.display = 'none';
@@ -1202,6 +1211,9 @@ return;
 }
 
 if (obj.name === 'hitbox_engine2') {
+  if (inputLocked) return; // ⛔ prevent spamming
+  inputLocked = true;
+  setTimeout(() => inputLocked = false, 700);
     const resetBtn = document.getElementById('reset-btn');
   if (resetBtn) {
     resetBtn.style.display = 'none';
