@@ -1153,7 +1153,7 @@ if (obj.name === 'hitbox_reel') {
 
 if (obj.name === 'hitbox_immersive') {
   console.log('🔗 hitbox_immersive clicked → Opening Curio...');
-  window.open('https://docs.google.com/presentation/d/1JyZSAfuxU9JmbL4kAX0L-cBGmZjSFYTiRclx8Bv0fhg/preview?slide=id.g34e9049caeb_0_12', '_blank');
+  window.open('https://docs.google.com/presentation/d/1ZrNRbpl-3M6kloLYcbJJk-j9EWfL5spXpKrndXmEOxA/preview?slide=id.g34e9049caeb_0_12', '_blank');
   return;
 }
 
