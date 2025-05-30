@@ -17,6 +17,8 @@ const scene = new THREE.Scene();
 const clock = new THREE.Clock();
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
 scene.add(camera);
+const listener = new THREE.AudioListener();
+camera.add(listener);
 const animationSpeeds = {
   generator: 1,
   lamp: 0.3,
@@ -37,18 +39,10 @@ if (!DEBUG) {
   console.error = () => {};
 }
 
-
-const debugSphere = new THREE.Mesh(
-  new THREE.SphereGeometry(0.01),
-  new THREE.MeshBasicMaterial({ color: 0xff0000 })
-);
-scene.add(debugSphere);
-
 function updateDebugMarker() {
   if (currentFocus) {
     const pos = new THREE.Vector3();
     currentFocus.getWorldPosition(pos);
-    debugSphere.position.copy(pos);
   }
 }
 
@@ -247,7 +241,8 @@ const captionMap = {
   'hitbox_engine1' : 'Open The Cover!',
   'hitbox_engine2' : 'Lets Find The Problem!',
   'hitbox_engine3' : 'Change The Core',
-  'hitbox_table' : 'Book Now!'
+  'hitbox_table' : 'Book Now!',
+  'hitbox_cable' : 'Light Switch'
 };
 const hitboxMap = {
   'hitbox_back': {
@@ -285,6 +280,8 @@ let hasHoveredBack = false;
 let inputLocked = false;
 let signsSwapEnabled = true;
 let visibilityLock = {};
+let isHDREnabled = true;
+let originalEnvMap = null; // for restoring later
 
 function resetSceneState() {
   console.log('🔁 Reset triggered (button or ESC)...');
@@ -297,6 +294,7 @@ function resetSceneState() {
     console.log('🔒 Reset button hidden again');
   }
 
+  playSFX('swoosh');
   signsSwapEnabled = true;
 
   // 🔄 Restore model visibility unless locked
@@ -407,6 +405,7 @@ window.listModels = () => {
   });
 };
 
+
 function reverseAllCamClips(modelName = 'focus_cam', speed = 1) {
   const model = modelRefs[modelName];
   if (!model || !model.userData.clips) {
@@ -433,8 +432,6 @@ function reverseAllCamClips(modelName = 'focus_cam', speed = 1) {
     }
   });
 }
-
-scene.remove(debugSphere);
 
 // === Tween Helper ===
 function tweenValue(obj, key, toValue, duration, easing = TWEEN.Easing.Quadratic.Out, onUpdate, onComplete) {
@@ -572,6 +569,65 @@ function focusOrbitOnModel(modelName) {
   console.log(`🧲 Orbit center updated to model "${modelName}"`);
 }
 
+// === AUDIO SECTION ===
+
+const sfxMap = {};
+const sfxLoader = new THREE.AudioLoader();
+
+function loadSFX(name, url) {
+  const sound = new THREE.Audio(listener);
+  sfxLoader.load(url, buffer => {
+    sound.setBuffer(buffer);
+    sound.setVolume(1.0);
+    sound.userData = { loaded: true };
+    sfxMap[name] = sound;
+  }, undefined, err => {
+    console.warn(`⚠️ Failed to load SFX ${name}:`, err);
+  });
+}
+
+function playSFX(name) {
+  const sfx = sfxMap[name];
+  if (!sfx || !sfx.userData?.loaded) {
+    // Not ready yet
+    return;
+  }
+
+  if (sfx.isPlaying) sfx.stop();
+  sfx.play();
+}
+
+// 🚫 NO loadingManager here
+const bgmLoader = new THREE.AudioLoader();
+const bgm = new THREE.Audio(listener);
+
+bgmLoader.load('/audio/bgm_web.mp3', (buffer) => {
+  bgm.setBuffer(buffer);
+  bgm.setLoop(true);
+  bgm.setVolume(0.3);
+  bgmReady = true;
+  
+  // Auto-play early if allowed
+  if (userInteracted && !bgm.isPlaying) {
+    bgm.play();
+    console.log('🎵 BGM playing during preload');
+  }
+}, undefined, (err) => {
+  console.warn('❌ Failed to load BGM early:', err);
+});
+
+
+let bgmReady = true;
+let userInteracted = false;
+
+window.addEventListener('click', () => {
+  userInteracted = true;
+  if (bgmReady && !bgm.isPlaying) {
+    bgm.play();
+    console.log('▶️ BGM started');
+  }
+}, { once: true });
+
 // === Camera Tweening ===
 function tweenToCamera(target) {
   const targetPos = new THREE.Vector3();
@@ -647,14 +703,15 @@ function logFocusPosition() {
   console.log('🎯 OrbitControls.target @', controls.target.toArray());
 }
 
-// === Model Loader ===
+
+// === Model List ===
 const modelNames = [
-  'car', 'cart', 'lamp', 'hood', 'generator', 'table', 'tablefont',
+  'car', 'cart', 'lamp', 'hood', 'generator', 'table', 'sky',
   'ground', 'robot', 'robot1', 'robot2', 'sign1', 'sign2', 'menu', 'back', 'guide',
   'cam_engine', 'cam_guide','cam_custom','cam_menu',
-  'hitbox_menu', 'hitbox_table', 'hitbox_hood', 'hitbox_back', 
+  'hitbox_menu', 'hitbox_table', 'hitbox_hood', 'hitbox_back', 'hitbox_cable',
   'hitbox_app', 'focus_cam', 'hitbox_vr', 'hitbox_immersive', 'hitbox_guide',
-  'hitbox_reel', 'background', 'person', 'logo',
+  'hitbox_reel', 'background', 'logo', 'person',
   'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive',
   'engine_corebroken','engine_core', 'engine_top', 'engine_cover', 'engine_fan', 'engine_base',
   'hitbox_engine', 'hitbox_engine1', 'hitbox_engine2', 'hitbox_engine3'
@@ -781,13 +838,7 @@ function onModelLoaded() {
   loadedCount++;
   if (loadedCount === modelNames.length) {
     console.log('✅ All models loaded.');
-    checkEverythingLoaded(); // Call the shared checker
-
-    // 🔒 Focus camera on mesh_focus inside focus_cam.glb
     currentFocus = modelRefs['focus_cam'];
-    debugSphere.visible = false;
-
-    // ✅ STEP 2: Trigger mobile-only pulsing highlights
     if (isMobileDevice()) {
       
       const highlightTargets = ['hood', 'back', 'table', 'guide', 'menu'];
@@ -803,6 +854,91 @@ function onModelLoaded() {
   }
 }
 
+setTimeout(() => {
+  // store current env
+  const currentEnv = scene.environment;
+
+  // temporarily disable
+  scene.environment = null;
+  scene.background = new THREE.Color(0x000000);
+
+  // after a short delay, restore
+  setTimeout(() => {
+    scene.environment = currentEnv;
+    scene.background = currentEnv;
+    console.log('✅ HDR toggle prewarmed');
+  }, 200);
+}, 1000); // wait for all assets to finish
+
+
+function disableAllLightAndGlow(modelName) {
+  const model = modelRefs[modelName];
+  if (!model) return;
+
+  model.traverse(child => {
+    if (child.isLight) {
+      if (!('originalIntensity' in child.userData)) {
+        child.userData.originalIntensity = child.intensity;
+      }
+      child.intensity = 0;
+    }
+
+    if (child.isMesh && child.material && 'emissive' in child.material) {
+      if (!('originalEmissive' in child.userData)) {
+        child.userData.originalEmissive = child.material.emissive.clone();
+      }
+      if (!('originalEmissiveIntensity' in child.userData)) {
+        child.userData.originalEmissiveIntensity = child.material.emissiveIntensity;
+      }
+
+      child.material.emissive.setRGB(0, 0, 0);
+      child.material.emissiveIntensity = 0;
+    }
+  });
+}
+
+
+function restoreAllLightAndGlow(modelName) {
+  const model = modelRefs[modelName];
+  if (!model) return;
+
+  model.traverse(child => {
+    if (child.isLight) {
+      child.intensity = child.userData.originalIntensity ?? 1; // default to 1 if not stored
+    }
+
+    if (child.isMesh && child.material && 'emissive' in child.material) {
+      const original = child.userData.originalEmissive ?? new THREE.Color(0x000000);
+      const intensity = child.userData.originalEmissiveIntensity ?? 1;
+      child.material.emissive.copy(original);
+      child.material.emissiveIntensity = intensity;
+    }
+  });
+}
+
+
+// === SFX List ===
+const sfxFiles = {
+  backopen: '/audio/sfx_backopen.mp3',
+  backfull: '/audio/sfx_backfull.mp3',
+  hoodopen: '/audio/sfx_hoodopen.mp3',
+  hoodclose: '/audio/sfx_hoodclose.mp3',
+  hoodfull: '/audio/sfx_hoodall.mp3',
+  generator: '/audio/sfx_prox_generator.mp3',
+  table: '/audio/sfx_table.mp3',
+  menu: '/audio/sfx_menu.mp3',
+  swoosh: '/audio/sfx_swoosh.mp3',
+  right1: '/audio/sfx_right1.mp3',
+  ON: '/audio/sfx_on.mp3',
+  OFF: '/audio/sfx_off.mp3',
+  //right2: '/audio/sfx_right2.mp3',
+  
+  //table: '/audio/sfx_table.mp3'
+};
+
+Object.entries(sfxFiles).forEach(([name, path]) => {
+  loadSFX(name, path);
+});
 
 const waitForHood = setInterval(() => {
   if (modelRefs['hood']) {
@@ -810,6 +946,30 @@ const waitForHood = setInterval(() => {
     console.log('✅ Hood model loaded. Ready for animation.');
   }
 }, 100);
+ 
+const proximitySounds = [
+  {
+    position: new THREE.Vector3(
+    -0.70647, 0.04338, 2.0774
+    ),
+    sound: 'generator',
+    radius: 6,
+    minDist: 3,
+    maxVol: 0.75,
+    triggered: true
+  }
+];
+
+window.logWorldPos = (model, mesh) => {
+  const obj = modelRefs[model]?.getObjectByName(mesh);
+  if (obj) {
+    const pos = new THREE.Vector3();
+    obj.getWorldPosition(pos);
+    console.log(`🌍 ${model}/${mesh} world pos:`, pos.toArray());
+  } else {
+    console.warn('❌ mesh not found');
+  }
+};
 
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
@@ -827,6 +987,10 @@ document.getElementById('reset-btn')?.addEventListener('click', resetSceneState)
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 let lastHoveredHitbox = null;
+
+const hitboxAnimationState = {
+  cable: false // false = off, true = on
+};
 
 function hideUntilRemoved(modelNameA, modelNameB) {
   const modelA = modelRefs[modelNameA];
@@ -912,6 +1076,8 @@ function playModelClipOnce(modelName, clipName, speed = 1) {
   console.log(`🎬 Playing "${clipName}" once on "${modelName}"`);
 }
 
+
+
 function onMouseMove(e) {
   mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -942,15 +1108,18 @@ if (newHoveredHitbox !== lastHoveredHitbox) {
     console.log(`👋 Hover out: ${lastHoveredHitbox}`);
     if (lastHoveredHitbox === 'hitbox_back' && !backHoverLocked) {
       playModelClip('back', 'nla_backclose', 1);
+        playSFX('backopen');
     }
     if (lastHoveredHitbox === 'hitbox_hood' && !hoodHoverLocked) {
       playHoodClip('nla_hoodClose', 5);
+      playSFX('hoodclose');
     }
     if (lastHoveredHitbox === 'hitbox_table') {
       Promise.all([
   playModelClip('table', 'nla_tableback', 1),
   playModelClip('tablefont', 'nla_tablerear', 1)
 ]);
+playSFX('table');
     }
 
     // 🛑 Stop icon animations
@@ -983,9 +1152,11 @@ if (newHoveredHitbox !== lastHoveredHitbox) {
 
     if (newHoveredHitbox === 'hitbox_hood' && !hoodHoverLocked) {
       playHoodClip('nla_hoodOpen', 5);
+      playSFX('hoodopen');
     }
     if (newHoveredHitbox === 'hitbox_back' && !backHoverLocked) {
       playModelClip('back', 'nla_backopen', 1);
+      playSFX('backopen');
       hasHoveredBack = true;
     }
     if (newHoveredHitbox === 'hitbox_table') {
@@ -993,6 +1164,7 @@ if (newHoveredHitbox !== lastHoveredHitbox) {
   playModelClip('table', 'nla_table', 1),
   playModelClip('tablefont', 'nla_tablefront', 1)
 ]);
+playSFX('table');
     }
 
 // 🔁 Play icon animations with custom speed
@@ -1105,6 +1277,7 @@ if (mapping) {
     launchHitboxLift1();
       launchHitboxLift2();
     playHoodClip('nla_hoodAction');
+    playSFX('hoodfull');
     moveModelToOffsetXYZ('focus_cam', { x: 2.0016531944274902, y: 0.3605214059352875, z: -0.33794140815734863 }, 1000);
     hoodHoverLocked = true;
     controls.enabled = false;
@@ -1117,6 +1290,7 @@ if (mapping) {
 
 if (obj.name === 'hitbox_menu') {
   launchHitboxLift1()
+  playSFX('menu');
   moveModelToOffsetXYZ('focus_cam', { x: -0.19776688516139984, y: 1.1592967510223389, z: -0.3411976993083954 }, 1000);
   controls.enabled = false;
   if (inputLocked) return; // ⛔ prevent spamming
@@ -1151,6 +1325,49 @@ if (obj.name === 'hitbox_reel') {
   return;
 }
 
+if (obj.name === 'hitbox_cable') {
+const targets = ['cart', 'lamp', 'table', 'menu', 'guide', 'logo', 'sign1', 'sign2'];
+
+if (hitboxAnimationState.cable) {
+  // OFF → ON
+  setTimeout(() => {
+    targets.forEach(restoreAllLightAndGlow);
+}, 500);} else {
+  // ON → OFF
+  targets.forEach(disableAllLightAndGlow);
+}
+
+
+  const isOn = hitboxAnimationState.cable;
+  const clipName = isOn ? 'nla_cabolon' : 'nla_caboloff';
+  const sfxName = isOn ? 'ON' : 'OFF';
+  const sfxDelay = isOn ? '0' : '500';
+
+  playModelClip('generator', clipName, 1.0); // Adjust speed if needed
+
+  
+playSFX(sfxName)
+  // Toggle state
+  hitboxAnimationState.cable = !isOn;
+
+  isHDREnabled = !isHDREnabled;
+
+  if (isHDREnabled) {
+     setTimeout(() => {
+    scene.environment = originalEnvMap;
+    scene.background = originalEnvMap;
+    console.log('🌄 HDR enabled');
+    }, 500);
+  } else {
+    // ☠️ Disable HDR (use null or black texture)
+    if (!originalEnvMap) originalEnvMap = scene.environment;
+    scene.environment = null;
+    scene.background = new THREE.Color(0x000000); // or use a solid color
+    console.log('🌑 HDR disabled');
+  }
+  return;
+}
+
 if (obj.name === 'hitbox_immersive') {
   console.log('🔗 hitbox_immersive clicked → Opening Curio...');
   window.open('https://docs.google.com/presentation/d/1ZrNRbpl-3M6kloLYcbJJk-j9EWfL5spXpKrndXmEOxA/preview?slide=id.g34e9049caeb_0_12', '_blank');
@@ -1166,11 +1383,14 @@ moveModelToOffsetXYZ('focus_cam', { x: 1.1818594932556152, y: 0.4421923160552978
    controls.enabled = false;
 }
 
+
+
 if (obj.name === 'hitbox_back') {
   if (inputLocked) return; // ⛔ prevent spamming
   inputLocked = true;
   setTimeout(() => inputLocked = false, 700);
   moveHitboxY('hitbox_back', 500);
+  playSFX('backfull');
   console.log('🎯 hitbox_back clicked → move new position');
 playModelClip('back', 'nla_backall', 1);
    launchHitboxLift1();
@@ -1217,6 +1437,7 @@ if (obj.name === 'hitbox_engine1') {
     console.log('🔒 Reset button disabled');
   }
 moveHitboxY('hitbox_engine1', 500);
+playSFX('right1');
 playModelClipOnce('engine_cover', 'nla_encover', 1);
 return;
 }
@@ -1232,6 +1453,7 @@ if (obj.name === 'hitbox_engine2') {
     console.log('🔒 Reset button disabled');
   }
 moveHitboxY('hitbox_engine2', 500);
+playSFX('right1');
 playModelClipOnce('engine_base', 'nla_enbase', 1);
 playModelClipOnce('engine_top', 'nla_entop', 1);
 playModelClipOnce('engine_fan', 'nla_enfan', 1);
@@ -1246,6 +1468,7 @@ if (obj.name === 'hitbox_engine3') {
     console.log('🔒 Reset button disabled');
   }
   hideUntilRemoved('engine_core', 'engine_corebroken');
+  playSFX('right1');
 
   const engineTargets = ['engine_corebroken', 'hitbox_engine', 'hitbox_engine1', 'hitbox_engine2', 'hitbox_engine3'];
 
@@ -1290,7 +1513,7 @@ if (obj.name === 'hitbox_table') {
  
 
 window.addEventListener('mousemove', onMouseMove);
-window.addEventListener('click', onClick);
+window.addEventListener('mousedown', onClick);
 window.addEventListener('touchstart', (e) => {
   const touch = e.touches[0];
   mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
@@ -1305,13 +1528,70 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+function setupProximitySound(modelName, soundName, minDist = 3, maxDist = 8, maxVol = 0.75) {
+  proximitySounds.push({
+    name: modelName,
+    sound: soundName,
+    radius: maxDist,
+    minDist,
+    maxVol,
+    triggered: true
+  });
+}
+
+setupProximitySound('generator_cube016', 'generator');
+setupProximitySound('hitbox_engine3_hitbox_engine003', 'generator');
+
+function getVolumeByDistance(distance, min = 20, max = 30, maxVol = 1) {
+  if (distance <= min) return maxVol;
+  if (distance >= max) return 0;
+  return maxVol * (1 - (distance - min) / (max - min));
+}
+
 function animate() {
   requestAnimationFrame(animate);
   const delta = clock.getDelta();
   controls.update();
   tweenGroup.update();
 
-    if (hoodAnim.mixer) hoodAnim.mixer.update(delta);
+  if (hoodAnim.mixer) hoodAnim.mixer.update(delta);
+
+ proximitySounds.forEach(entry => {
+  const sfx = sfxMap[entry.sound];
+  if (!sfx || !sfx.buffer) return;
+
+  const soundPos = entry.position ?? (() => {
+    let model = modelRefs[entry.name];
+    if (!model) {
+      for (const ref of Object.values(modelRefs)) {
+        const mesh = ref.getObjectByName?.(entry.name);
+        if (mesh) return mesh;
+      }
+      return null;
+    }
+    return model;
+  })();
+
+  if (!soundPos) return;
+
+  const soundWorldPos = soundPos.isVector3 ? soundPos : new THREE.Vector3().setFromMatrixPosition(soundPos.matrixWorld);
+  const cameraPos = new THREE.Vector3();
+  camera.getWorldPosition(cameraPos);
+
+  const distance = soundWorldPos.distanceTo(cameraPos);
+  const volume = getVolumeByDistance(distance, entry.minDist ?? 1, entry.radius, entry.maxVol ?? 0.75);
+
+  sfx.setVolume(volume);
+
+  if (volume > 0 && !sfx.isPlaying) {
+    sfx.play();
+  }
+  if (volume === 0 && sfx.isPlaying) {
+    sfx.stop();
+  }
+});
+
+
 
   // mixer animation
 
