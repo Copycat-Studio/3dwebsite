@@ -231,30 +231,44 @@ const captionMap = {
   'hitbox_table' : 'Book Now!',
   'hitbox_cable' : 'Light Switch'
 };
+
+//======camera list=====
+
 const hitboxMap = {
   'hitbox_back': {
-    cam: 'cam_custom',
+    cam: {
+    desktop: 'cam_custom',
+    mobile: 'cam_custommobile'
+    },
     model: 'back'
   },
   'hitbox_menu': {
-    cam: 'cam_menu',
+    cam: {
+    desktop: 'cam_menu',
+    mobile: 'cam_menumobile'
+    },
     model: 'menu'
   },
   'hitbox_hood': {
-    cam: 'cam_engine',
+    cam: {
+    desktop: 'cam_hood',
+    mobile: 'cam_hoodmobile'
+    },
     model: 'hood'
   },
    'hitbox_engine': {
-    cam: 'cam_engine',
-    model: 'hood'
+    cam: {
+    desktop: 'cam_engine',
+    mobile: 'cam_enginemobile'
+    },
+    model: 'engine'
   },
   'hitbox_guide': {
-    cam: 'cam_guide',
+    cam: {
+    desktop: 'cam_guide',
+    mobile: 'cam_guide'
+    },
     model: 'guide'
-  },
-  'hitbox_glb': {
-    cam: 'cam_back',
-    model: 'back'
   }
 };
 
@@ -619,14 +633,16 @@ const bgm = new THREE.Audio(listener);
 bgmLoader.load('/audio/bgm_web.mp3', (buffer) => {
   bgm.setBuffer(buffer);
   bgm.setLoop(true);
-  bgm.setVolume(0.3);
-  bgmReady = true;
-  
-  // Auto-play early if allowed
-  if (userInteracted && !bgm.isPlaying) {
-    bgm.play();
-    console.log('🎵 BGM playing during preload');
-  }
+  bgm.setVolume(0); // 🔇 Start muted
+  bgm.play();       // ✅ Try to autoplay anyway
+
+  // 🎚️ Fade in after slight delay (simulate warmup)
+  setTimeout(() => {
+    bgm.setVolume(0.3);
+    console.log('🔊 BGM faded in after autoplay attempt');
+  }, 1000);
+
+   bgmReady = true;
 }, undefined, (err) => {
   console.warn('❌ Failed to load BGM early:', err);
 });
@@ -635,13 +651,16 @@ bgmLoader.load('/audio/bgm_web.mp3', (buffer) => {
 let bgmReady = true;
 let userInteracted = false;
 
-window.addEventListener('click', () => {
-  userInteracted = true;
-  if (bgmReady && !bgm.isPlaying) {
-    bgm.play();
-    console.log('▶️ BGM started');
-  }
-}, { once: true });
+['click', 'touchstart', 'keydown'].forEach(eventName => {
+  window.addEventListener(eventName, () => {
+    userInteracted = true;
+    if (bgmReady && !bgm.isPlaying) {
+      bgm.play();
+      console.log(`▶️ BGM started via ${eventName}`);
+    }
+  }, { once: true });
+});
+
 
 // === Camera Tweening ===
 function tweenToCamera(target) {
@@ -723,7 +742,8 @@ function logFocusPosition() {
 const modelNames = [
   'car', 'cart', 'lamp', 'hood', 'generator', 'table', 'sky',
   'ground', 'robot', 'robot1', 'robot2', 'sign1', 'sign2', 'menu', 'back', 'guide',
-  'cam_engine', 'cam_guide','cam_custom','cam_menu',
+  'cam_engine', 'cam_guide','cam_custom','cam_menu', 'cam_hood',
+  'cam_hoodmobile', 'cam_custommobile', 'cam_menumobile', 'cam_enginemobile',
   'hitbox_menu', 'hitbox_table', 'hitbox_hood', 'hitbox_back', 'hitbox_cable',
   'hitbox_app', 'focus_cam', 'hitbox_vr', 'hitbox_immersive', 'hitbox_guide',
   'hitbox_reel', 'background', 'logo', 'person',
@@ -771,7 +791,6 @@ console.log(`🌍 World position of "${model.name}":`, worldPos.toArray());
     if (['generator', 'lamp', 'guide', 'person', 'menu', 'robot', 'robot1', 'robot2', 'engine_corebroken', 'engine_core'].includes(name.toLowerCase()) && gltf.animations?.length > 0) {
   const mixer = new THREE.AnimationMixer(model);
   const loopAction = mixer.clipAction(gltf.animations[0]);
-  
 
   
   const speed = animationSpeeds[name.toLowerCase()] || 1.0; // fallback = 1.0x
@@ -854,22 +873,78 @@ function onModelLoaded() {
   if (loadedCount === modelNames.length) {
     console.log('✅ All models loaded.');
     currentFocus = modelRefs['focus_cam'];
+
     if (isMobileDevice()) {
-      
-      const highlightTargets = ['hood', 'back', 'table', 'guide', 'menu'];
+    console.log('📱 Mobile detected — enabling outline pulse');
+    startAutoOutlinePulse(); // ✅ only on mobile
+  } else {
+    console.log('🖥️ Desktop detected — outline pulse skipped');
+  }
 
-      setInterval(() => {
-        highlightTargets.forEach(name => {
-          pulseHighlight(name);
-        });
-      }, 5000); // every 5s
-
-      console.log('📱 Mobile detected — pulsing highlights enabled');
-    }
   }
 }
 
+//====== FINISH LOADING=====
 
+function createOutline(model, color = 0xffff00, scale = 1.1) {
+  const outlineGroup = new THREE.Group();
+  model.traverse((child) => {
+    if (child.isMesh) {
+      const outline = child.clone();
+      outline.material = new THREE.MeshBasicMaterial({
+        color: color,
+        side: THREE.BackSide
+      });
+      outline.scale.multiplyScalar(scale);
+      outline.renderOrder = 999;
+      outlineGroup.add(outline);
+    }
+  });
+
+  model.add(outlineGroup); // 🔗 Attach outline to original
+  model.userData.outline = outlineGroup;
+}
+
+function removeOutline(model) {
+  const outline = model.userData.outline;
+  if (outline) {
+    model.remove(outline);
+    delete model.userData.outline;
+  }
+}
+
+const pulsingModels = ['hood', 'back', 'table', 'menu', 'guide'];
+let pulseInterval = null;
+
+function startAutoOutlinePulse(color = 0x00ffff, scale = 1.1) {
+  if (pulseInterval) return; // Already running
+
+  pulseInterval = setInterval(() => {
+    pulsingModels.forEach(name => {
+      const model = modelRefs[name];
+      if (!model) return;
+      createOutline(model, color, scale);
+    });
+
+    setTimeout(() => {
+      pulsingModels.forEach(name => {
+        const model = modelRefs[name];
+        if (!model) return;
+        removeOutline(model);
+      });
+    }, 1000); // 💡 Outline stays on for 1s
+
+  }, 4000); // ⏱️ Run every 4s
+}
+
+function stopAutoOutlinePulse() {
+  clearInterval(pulseInterval);
+  pulseInterval = null;
+  pulsingModels.forEach(name => {
+    const model = modelRefs[name];
+    if (model) removeOutline(model);
+  });
+}
 
 function disableAllLightAndGlow(modelName) {
   const model = modelRefs[modelName];
@@ -963,7 +1038,7 @@ const proximitySounds = [
     -1.54716, 0.71864, 0.380925
     ),
     sound: 'robot',
-    radius: 6,
+    radius: 5,
     minDist: 2,
     maxVol: 1,
     triggered: true
@@ -973,7 +1048,7 @@ const proximitySounds = [
     2.02544, 0.27704, -0.31851
     ),
     sound: 'core',
-    radius: 4,
+    radius: 2.5,
     minDist: 0,
     maxVol: .5,
     triggered: true
@@ -1277,7 +1352,13 @@ if (resetBtn && resetBtn.style.display === 'none') {
 
 const mapping = hitboxMap[obj.name];
 if (mapping) {
-  const { cam, model } = mapping;
+  let { cam, model } = mapping;
+
+  // 📱🖥️ Support cam as either string or { desktop, mobile }
+  if (typeof cam === 'object') {
+    cam = isMobileDevice() ? cam.mobile : cam.desktop;
+  }
+
   const camTarget = camTargets[cam];
   currentFocus = modelRefs['focus_cam'];
 
@@ -1288,6 +1369,7 @@ if (mapping) {
   } else {
     console.warn(`❌ Camera target "${cam}" not found.`);
   }
+}
 
   // 🧹 Special logic for hood click
   if (obj.name === 'hitbox_hood') {
@@ -1296,6 +1378,7 @@ if (mapping) {
   setTimeout(() => inputLocked = false, 700);
     launchHitboxLift1();
       launchHitboxLift2();
+      stopAutoOutlinePulse();
     playHoodClip('nla_hoodAction');
     playSFX('hoodfull');
     moveModelToOffsetXYZ('focus_cam', { x: 2.0016531944274902, y: 0.3605214059352875, z: -0.33794140815734863 }, 1000);
@@ -1309,7 +1392,8 @@ if (mapping) {
 }
 
 if (obj.name === 'hitbox_menu') {
-  launchHitboxLift1()
+  launchHitboxLift1();
+  stopAutoOutlinePulse();
   playSFX('menu');
   moveModelToOffsetXYZ('focus_cam', { x: -0.19776688516139984, y: 1.1592967510223389, z: -0.3411976993083954 }, 1000);
   controls.enabled = false;
@@ -1399,6 +1483,7 @@ if (obj.name === 'hitbox_guide') {
    launchHitboxLift1();
       launchHitboxLift2();
       launchHitboxLift3();
+      stopAutoOutlinePulse();
 moveModelToOffsetXYZ('focus_cam', { x: 1.1818594932556152, y: 0.44219231605529785, z: -1.7928889989852905 }, 1000);
    controls.enabled = false;
 }
@@ -1408,6 +1493,7 @@ moveModelToOffsetXYZ('focus_cam', { x: 1.1818594932556152, y: 0.4421923160552978
 if (obj.name === 'hitbox_back') {
   if (inputLocked) return; // ⛔ prevent spamming
   inputLocked = true;
+  stopAutoOutlinePulse();
   setTimeout(() => inputLocked = false, 700);
   moveHitboxY('hitbox_back', 500);
   playSFX('backfull');
@@ -1416,13 +1502,14 @@ playModelClip('back', 'nla_backall', 1);
    launchHitboxLift1();
       launchHitboxLift2();
       launchHitboxLift3();
-moveModelToOffsetXYZ('focus_cam', { x: -2.556675672531128, y: 0.7332350611686707, z: 0 }, 1000);
+moveModelToOffsetXYZ('focus_cam', { x: -2.756675672531128, y: 0.7532350611686707, z: 0 }, 1000);
 controls.enabled = false;
 backHoverLocked = true;
 return;
 }
 
 if (obj.name === 'hitbox_engine') {
+  moveHitboxY('hitbox_engine', 500);
   if (inputLocked) return; // ⛔ prevent spamming
   inputLocked = true;
   setTimeout(() => inputLocked = false, 700);
@@ -1432,8 +1519,8 @@ if (obj.name === 'hitbox_engine') {
     resetBtn.disabled = true;
     console.log('🔒 Reset button disabled');
   }
-moveModelToOffsetXYZ('focus_cam', { x: 2.0016531944274902, y: 0.3605214059352875, z: -0.33794140815734863 }, 1000); 
-moveHitboxY('hitbox_engine', 500);
+moveModelToOffsetXYZ('focus_cam', { x: 2.0016531944274902, y: 0.3605214059352875, z: -0.36794140815734863 }, 1000); 
+
 console.log('🔍 Isolating engine models...');
 
   Object.entries(modelRefs).forEach(([name, model]) => {
@@ -1447,6 +1534,7 @@ return;
 }
 
 if (obj.name === 'hitbox_engine1') {
+  moveHitboxY('hitbox_engine1', 500);
   if (inputLocked) return; // ⛔ prevent spamming
   inputLocked = true;
   setTimeout(() => inputLocked = false, 700);
@@ -1456,13 +1544,14 @@ if (obj.name === 'hitbox_engine1') {
     resetBtn.disabled = true;
     console.log('🔒 Reset button disabled');
   }
-moveHitboxY('hitbox_engine1', 500);
+
 playSFX('right1');
 playModelClipOnce('engine_cover', 'nla_encover', 1);
 return;
 }
 
 if (obj.name === 'hitbox_engine2') {
+  moveHitboxY('hitbox_engine2', 500);
   if (inputLocked) return; // ⛔ prevent spamming
   inputLocked = true;
   setTimeout(() => inputLocked = false, 700);
@@ -1472,7 +1561,7 @@ if (obj.name === 'hitbox_engine2') {
     resetBtn.disabled = true;
     console.log('🔒 Reset button disabled');
   }
-moveHitboxY('hitbox_engine2', 500);
+
 playSFX('right1');
 playModelClipOnce('engine_base', 'nla_enbase', 1);
 playModelClipOnce('engine_top', 'nla_entop', 1);
@@ -1519,6 +1608,7 @@ return;
 }
 
 if (obj.name === 'hitbox_table') {
+   stopAutoOutlinePulse();
   console.log('💬 hitbox_table clicked → Opening WhatsApp...');
   const phone = '6283820299086'; // use your full international number
   const message = encodeURIComponent('Hi! I want to get a reservation — let’s talk.');
@@ -1526,9 +1616,8 @@ if (obj.name === 'hitbox_table') {
   window.open(url, '_blank');
   return;
 }
+}
 
-}
-}
 
  
 window.addEventListener('mousemove', onMouseMove);
