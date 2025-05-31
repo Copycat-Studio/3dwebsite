@@ -195,19 +195,6 @@ const gltfLoader = new GLTFLoader(loadingManager);
 
 const rgbeLoader = new RGBELoader(loadingManager);
 
-
-
-rgbeLoader.load('/textures/hdr.hdr', function (hdrEquirect) {
-  const envMap = pmremGenerator.fromEquirectangular(hdrEquirect).texture;
-
-  scene.environment = envMap; // 🌐 Lighting
-  scene.background = null;                                      
-
-  hdrEquirect.dispose(); // ♻️ Free GPU mem if not used as background
-  pmremGenerator.dispose(); // 🧼 Done generating
-  console.log('🔆 PMREM HDRI environment applied');
-});
-
 function setWorldPosition(mesh, worldPos) {
   if (!mesh.parent) {
     console.warn('⚠️ Mesh has no parent — cannot convert to local');
@@ -531,6 +518,34 @@ function pulseHighlight(modelName, color = 0xffff00, duration = 1000) {
   });
 }
 
+rgbeLoader.load('/textures/hdr.hdr', function (hdrEquirect) {
+  const envMap = pmremGenerator.fromEquirectangular(hdrEquirect).texture;
+
+  originalEnvMap = envMap;
+
+  scene.environment = envMap;
+  scene.background = null;
+
+  hdrEquirect.dispose();
+
+  console.log('🔥 HDR loaded → starting warm-up cycle...');
+
+  // 🔥 Turn HDR OFF
+  setTimeout(() => {
+    scene.environment = null;
+    scene.background = new THREE.Color(0x000000);
+
+    // 🔁 Turn HDR ON
+    setTimeout(() => {
+      scene.environment = originalEnvMap;
+      scene.background = originalEnvMap;
+
+      renderer.compile(scene, camera); // 🧠 optional: pre-compile shaders
+      console.log('✅ HDR pre-warmed and ready');
+    }, 100);
+  }, 100);
+});
+
 
 function launchHitboxLift1() {
   const targets = [
@@ -713,7 +728,7 @@ const modelNames = [
   'hitbox_app', 'focus_cam', 'hitbox_vr', 'hitbox_immersive', 'hitbox_guide',
   'hitbox_reel', 'background', 'logo', 'person',
   'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive',
-  'engine_corebroken','engine_core', 'engine_top', 'engine_cover', 'engine_fan', 'engine_base',
+  'engine_corebroken','engine_core', 'engine_top', 'engine_cover', 'engine_fan', 'engine_base', 'engine_background',
   'hitbox_engine', 'hitbox_engine1', 'hitbox_engine2', 'hitbox_engine3'
 ];
 
@@ -854,21 +869,6 @@ function onModelLoaded() {
   }
 }
 
-setTimeout(() => {
-  // store current env
-  const currentEnv = scene.environment;
-
-  // temporarily disable
-  scene.environment = null;
-  scene.background = new THREE.Color(0x000000);
-
-  // after a short delay, restore
-  setTimeout(() => {
-    scene.environment = currentEnv;
-    scene.background = currentEnv;
-    console.log('✅ HDR toggle prewarmed');
-  }, 200);
-}, 1000); // wait for all assets to finish
 
 
 function disableAllLightAndGlow(modelName) {
@@ -931,8 +931,8 @@ const sfxFiles = {
   right1: '/audio/sfx_right1.mp3',
   ON: '/audio/sfx_on.mp3',
   OFF: '/audio/sfx_off.mp3',
-  //right2: '/audio/sfx_right2.mp3',
-  
+  core: '/audio/sfx_core.mp3',
+  robot: '/audio/sfx_robot.mp3'
   //table: '/audio/sfx_table.mp3'
 };
 
@@ -953,9 +953,29 @@ const proximitySounds = [
     -0.70647, 0.04338, 2.0774
     ),
     sound: 'generator',
-    radius: 6,
+    radius: 5,
     minDist: 3,
-    maxVol: 0.75,
+    maxVol: .75,
+    triggered: true
+  },
+  {
+    position: new THREE.Vector3(
+    -1.54716, 0.71864, 0.380925
+    ),
+    sound: 'robot',
+    radius: 6,
+    minDist: 2,
+    maxVol: 1,
+    triggered: true
+  },
+    {
+    position: new THREE.Vector3(
+    2.02544, 0.27704, -0.31851
+    ),
+    sound: 'core',
+    radius: 4,
+    minDist: 0,
+    maxVol: .5,
     triggered: true
   }
 ];
@@ -1511,14 +1531,24 @@ if (obj.name === 'hitbox_table') {
 }
 
  
-
 window.addEventListener('mousemove', onMouseMove);
-window.addEventListener('mousedown', onClick);
+
+let lastClickTime = 0;
+
+function onClickWithThrottle(e) {
+  const now = Date.now();
+  if (now - lastClickTime < 250) return; // prevent rapid fire
+  lastClickTime = now;
+  onClick(e);
+}
+
+window.addEventListener('mousedown', onClickWithThrottle);
 window.addEventListener('touchstart', (e) => {
+  e.preventDefault(); 
   const touch = e.touches[0];
   mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
-  onClick(); // 📱 Reuse same logic
+  onClickWithThrottle(e);
 });
 
 
@@ -1528,7 +1558,7 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-function setupProximitySound(modelName, soundName, minDist = 3, maxDist = 8, maxVol = 0.75) {
+function setupProximitySound(modelName, soundName, minDist = 4, maxDist = 8, maxVol = 0.75) {
   proximitySounds.push({
     name: modelName,
     sound: soundName,
