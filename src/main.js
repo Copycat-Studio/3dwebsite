@@ -45,7 +45,7 @@ window.addEventListener('mousemove', (e) => {
   pointer.style.top = `${y}px`;
 });
 
-const DEBUG = true; // ✅ flip to false to silence logs
+const DEBUG = false; // ✅ flip to false to silence logs
 window.DEBUG = true; // 👈 make it global
 const hitboxOriginalPositions = {};
 
