@@ -26,7 +26,8 @@ const animationSpeeds = {
   robot: 0.4,
   robot1: 0.4,
   robot2: 0.4,
-  engine_corebroken: 0.4
+  engine_corebroken: 0.4,
+  speaker: 2.1
 
 };
 
@@ -245,7 +246,8 @@ const captionMap = {
   'hitbox_engine2' : 'Lets Find The Problem!',
   'hitbox_engine3' : 'Change The Core',
   'hitbox_table' : 'Book Now!',
-  'hitbox_cable' : 'Light Switch'
+  'hitbox_cable' : 'Light Switch',
+  'hitbox_speaker' : 'Music On/Off'
 };
 
 //======camera list=====
@@ -286,6 +288,11 @@ const hitboxMap = {
     },
     model: 'guide'
   }
+};
+
+const toggleState = {
+  speaker: true,
+  // add more toggles here
 };
 
 let currentFocus = null;
@@ -643,33 +650,7 @@ function playSFX(name) {
 }
 
 // 🚫 NO loadingManager here
-const bgmLoader = new THREE.AudioLoader();
-const bgm = new THREE.Audio(listener);
-let bgmReady = true;
-let userInteracted = false;
 
-bgmLoader.load('/audio/bgm_web.mp3', (buffer) => {
-  bgm.setBuffer(buffer);
-  bgm.setLoop(true);
-  bgm.setVolume(0.3);
-  bgmReady = true;
-  userInteracted = true;
-  
-  // Auto-play early if allowed
-  if (userInteracted && !bgm.isPlaying) {
-    bgm.play();
-    console.log('🎵 BGM playing during preload');
-  }
-}, undefined, (err) => {
-  console.warn('❌ Failed to load BGM early:', err);
-});
-
-window.addEventListener('click', () => {
-  if (bgmReady && !bgm.isPlaying) {
-    bgm.play();
-    console.log('▶️ BGM started');
-  }
-}, { once: true });
 
 // === Camera Tweening ===
 function tweenToCamera(target) {
@@ -749,12 +730,12 @@ function logFocusPosition() {
 
 // === Model List ===
 const modelNames = [
-  'car', 'cart', 'lamp', 'hood', 'generator', 'table', 'sky',
+  'car', 'cart', 'lamp', 'hood', 'generator', 'table', 'sky', 'speaker',
   'ground', 'robot', 'robot1', 'robot2', 'sign1', 'sign2', 'menu', 'back', 'guide',
   'cam_engine', 'cam_guide','cam_custom','cam_menu', 'cam_hood',
   'cam_hoodmobile', 'cam_custommobile', 'cam_menumobile', 'cam_enginemobile',
   'hitbox_menu', 'hitbox_table', 'hitbox_hood', 'hitbox_back', 'hitbox_cable',
-  'hitbox_app', 'focus_cam', 'hitbox_vr', 'hitbox_immersive', 'hitbox_guide',
+  'hitbox_app', 'focus_cam', 'hitbox_vr', 'hitbox_immersive', 'hitbox_guide', 'hitbox_speaker',
   'hitbox_reel', 'background', 'logo', 'person',
   'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive',
   'engine_corebroken','engine_core', 'engine_top', 'engine_cover', 'engine_fan', 'engine_base', 'engine_background',
@@ -797,7 +778,10 @@ console.log(`🌍 World position of "${model.name}":`, worldPos.toArray());
     }
 
         // 🔁 Auto-play looped animation for specific models
-    if (['generator', 'lamp', 'guide', 'person', 'menu', 'robot', 'robot1', 'robot2', 'engine_corebroken', 'engine_core'].includes(name.toLowerCase()) && gltf.animations?.length > 0) {
+    if ([
+      'generator', 'lamp', 'guide', 'person', 'menu', 'robot',
+     'robot1', 'robot2', 'engine_corebroken', 'engine_core', 'speaker'
+    ].includes(name.toLowerCase()) && gltf.animations?.length > 0) {
   const mixer = new THREE.AnimationMixer(model);
   const loopAction = mixer.clipAction(gltf.animations[0]);
 
@@ -1016,8 +1000,8 @@ const sfxFiles = {
   ON: '/audio/sfx_on.mp3',
   OFF: '/audio/sfx_off.mp3',
   core: '/audio/sfx_core.mp3',
-  robot: '/audio/sfx_robot.mp3'
-  //table: '/audio/sfx_table.mp3'
+  robot: '/audio/sfx_robot.mp3',
+  BGM: '/audio/bgm_web.mp3'
 };
 
 Object.entries(sfxFiles).forEach(([name, path]) => {
@@ -1039,7 +1023,7 @@ const proximitySounds = [
     sound: 'generator',
     radius: 5,
     minDist: 3,
-    maxVol: .75,
+    maxVol: .4,
     triggered: true
   },
   {
@@ -1052,6 +1036,16 @@ const proximitySounds = [
     maxVol: 1,
     triggered: true
   },
+ {
+  position: new THREE.Vector3(0.78964, -0.31310, 1.55398),
+  sound: 'BGM',
+  radius: 20,
+  minDist: 6,
+  maxVol: .5,
+  triggered: true,
+  name: 'speaker', // <- Add this too if not already present
+  enabled: true    // <- 👈 Required for toggle
+},
     {
     position: new THREE.Vector3(
     2.02544, 0.27704, -0.31851
@@ -1117,6 +1111,72 @@ function hideUntilRemoved(modelNameA, modelNameB) {
     }
   }, 100);
 }
+
+function toggleSpeakerState() {
+  toggleState.speaker = !toggleState.speaker;
+
+  if (toggleState.speaker) {
+    console.log('🔊 Speaker ON');
+    playLoopingAnimation('speaker');
+    enableProximitySound('speaker');
+  } else {
+    console.log('🔇 Speaker OFF');
+    stopLoopingAnimation('speaker');
+    disableProximitySound('speaker');
+  }
+}
+
+function playLoopingAnimation(modelName) {
+  const model = modelRefs[modelName];
+  const clips = model?.userData?.clips;
+  if (!model || !clips?.length) return;
+
+  const speed = animationSpeeds[modelName] || 1.0;
+  const mixer = model.userData.mixer || new THREE.AnimationMixer(model);
+  model.userData.mixer = mixer;
+
+  const action = mixer.clipAction(clips[0]);
+  action.setLoop(THREE.LoopPingPong);
+  action.timeScale = speed; // ✅ Use custom speed
+  action.clampWhenFinished = false;
+  action.reset().play();
+
+  model.userData.action = action;
+
+  console.log(`▶️ Playing ${modelName} @ ${speed}x`);
+}
+
+function stopLoopingAnimation(modelName) {
+  const action = modelRefs[modelName]?.userData?.action;
+  if (action) {
+    action.stop();
+    console.log(`⏹️ Stopped ${modelName}`);
+  }
+}
+
+
+function enableProximitySound(name) {
+  const entry = proximitySounds.find(p => p.name === name);
+  if (entry) {
+    entry.enabled = true;
+    console.log(`🔊 Sound "${name}" enabled`);
+  }
+}
+
+function disableProximitySound(name) {
+  const entry = proximitySounds.find(p => p.name === name);
+  if (!entry) return;
+
+  entry.enabled = false;
+
+  // Instead of stopping sound, mute it
+  const sfx = sfxMap[entry.sound];
+  if (sfx?.isPlaying) {
+    sfx.setVolume(0); // 🔇 Mute but don't stop to avoid reset
+    console.log(`🔇 Muted "${entry.sound}"`);
+  }
+}
+
 
 function playModelClip(modelName, clipName, direction = 1, speed = 1) {
   const model = modelRefs[modelName];
@@ -1630,6 +1690,12 @@ if (obj.name === 'hitbox_table') {
   window.open(url, '_blank');
   return;
 }
+
+if (obj.name === 'hitbox_speaker') {
+  toggleSpeakerState();
+  return;
+}
+
 }
 
 
@@ -1694,6 +1760,8 @@ function animate() {
   controls.update();
   tweenGroup.update();
 
+  
+
   if (hoodAnim.mixer) hoodAnim.mixer.update(delta);
 
  proximitySounds.forEach(entry => {
@@ -1736,7 +1804,7 @@ function animate() {
   // mixer animation
 
 ['generator', 'lamp', 'back', 'table', 'tablefont', 'menu', 'focus_cam', 'robot', 'robot1', 'robot2',
-  'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive', 'person', 'guide',
+  'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive', 'person', 'guide', 'speaker',
   'engine_corebroken', 'engine_core', 'engine_top', 'engine_cover', 'engine_fan', 'engine_base'
 ].forEach(name => {
   const model = modelRefs[name];
