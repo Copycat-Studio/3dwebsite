@@ -29,6 +29,21 @@ const animationSpeeds = {
   engine_corebroken: 0.4
 
 };
+
+const cursor = document.getElementById('custom-cursor');
+const pointer = document.getElementById('custom-pointer');
+
+window.addEventListener('mousemove', (e) => {
+  const x = e.clientX;
+  const y = e.clientY;
+
+  cursor.style.left = `${x}px`;
+  cursor.style.top = `${y}px`;
+
+  pointer.style.left = `${x}px`;
+  pointer.style.top = `${y}px`;
+});
+
 const DEBUG = true; // ✅ flip to false to silence logs
 window.DEBUG = true; // 👈 make it global
 const hitboxOriginalPositions = {};
@@ -132,6 +147,7 @@ document.body.appendChild(renderer.domElement);
 renderer.domElement.style.outline = 'none';
 renderer.domElement.style.touchAction = 'none';
 renderer.domElement.style.userSelect = 'none';
+renderer.domElement.style.cursor = 'none';
 
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -563,7 +579,7 @@ rgbeLoader.load('/textures/hdr.hdr', function (hdrEquirect) {
 
 function launchHitboxLift1() {
   const targets = [
-    'hitbox_menu', 'hitbox_table', 'hitbox_hood', 'hitbox_back', 'hitbox_guide'
+    'hitbox_menu', 'hitbox_table', 'hitbox_hood', 'hitbox_back', 'hitbox_guide', 'hitbox_cable'
   ];
   
   moveMultipleHitboxesY(targets, 500);
@@ -629,38 +645,31 @@ function playSFX(name) {
 // 🚫 NO loadingManager here
 const bgmLoader = new THREE.AudioLoader();
 const bgm = new THREE.Audio(listener);
+let bgmReady = true;
+let userInteracted = false;
 
 bgmLoader.load('/audio/bgm_web.mp3', (buffer) => {
   bgm.setBuffer(buffer);
   bgm.setLoop(true);
-  bgm.setVolume(0); // 🔇 Start muted
-  bgm.play();       // ✅ Try to autoplay anyway
-
-  // 🎚️ Fade in after slight delay (simulate warmup)
-  setTimeout(() => {
-    bgm.setVolume(0.3);
-    console.log('🔊 BGM faded in after autoplay attempt');
-  }, 1000);
-
-   bgmReady = true;
+  bgm.setVolume(0.3);
+  bgmReady = true;
+  userInteracted = true;
+  
+  // Auto-play early if allowed
+  if (userInteracted && !bgm.isPlaying) {
+    bgm.play();
+    console.log('🎵 BGM playing during preload');
+  }
 }, undefined, (err) => {
   console.warn('❌ Failed to load BGM early:', err);
 });
 
-
-let bgmReady = true;
-let userInteracted = false;
-
-['click', 'touchstart', 'keydown'].forEach(eventName => {
-  window.addEventListener(eventName, () => {
-    userInteracted = true;
-    if (bgmReady && !bgm.isPlaying) {
-      bgm.play();
-      console.log(`▶️ BGM started via ${eventName}`);
-    }
-  }, { once: true });
-});
-
+window.addEventListener('click', () => {
+  if (bgmReady && !bgm.isPlaying) {
+    bgm.play();
+    console.log('▶️ BGM started');
+  }
+}, { once: true });
 
 // === Camera Tweening ===
 function tweenToCamera(target) {
@@ -880,7 +889,7 @@ function onModelLoaded() {
   } else {
     console.log('🖥️ Desktop detected — outline pulse skipped');
   }
-
+  
   }
 }
 
@@ -1313,9 +1322,14 @@ const playAnim = (modelName, clipNames, playSpeed = 1) => {
 if (captionMap[newHoveredHitbox]) {
   captionEl.innerHTML = captionMap[newHoveredHitbox];
   captionEl.style.display = 'block';
-  captionEl.style.left = `${e.clientX + 15}px`;
-  captionEl.style.top = `${e.clientY + 15}px`;
+ captionEl.style.left = `${e.clientX + 36}px`;
+captionEl.style.top = `${e.clientY + 5}px`;
+cursor.classList.add('pointer');
+
+
 } else {
+  cursor.classList.remove('pointer');
+
   captionEl.style.display = 'none';
 }
 
@@ -1324,9 +1338,9 @@ if (captionMap[newHoveredHitbox]) {
 
 }
 
-function onClick() {
-
+function onClick(e) {
   if (inputLocked) return;
+
 
   raycaster.setFromCamera(mouse, camera);
   const intersects = raycaster.intersectObjects(scene.children, true);
@@ -1626,9 +1640,16 @@ let lastClickTime = 0;
 
 function onClickWithThrottle(e) {
   const now = Date.now();
-  if (now - lastClickTime < 250) return; // prevent rapid fire
+  if (now - lastClickTime < 250) return;
   lastClickTime = now;
-  onClick(e);
+
+  // 💉 Always inject fresh mouse coords
+  if (e && e.clientX !== undefined && e.clientY !== undefined) {
+    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  }
+
+  onClick(e); // 🔁 propagate
 }
 
 window.addEventListener('mousedown', onClickWithThrottle);

@@ -8,13 +8,14 @@
     <link rel="icon" href="/favicon.ico" />
     <link rel="stylesheet" href="./style.css" />
     <style>
-      html, body {
+      html, body {       
         margin: 0;
         padding: 0;
         overflow: hidden;
         height: 100%;
       
       .progress-bar-container {
+        cursor: none;
         position: absolute;
         left: 50%;
         top: 50%;
@@ -84,6 +85,35 @@
     }
   }
 
+#custom-cursor {
+      position: fixed;
+      width: 84px;
+      height: 84px;
+      pointer-events: none;
+      z-index: 9999;
+      background: url('/cursor.png') no-repeat center center;
+      background-size: contain;
+      transform: translate(-50%, -50%);
+      }
+
+      #custom-pointer {
+      display: none;
+      position: fixed;
+      width: 84px;
+      height: 84px;
+      background: #00f5cc;
+      border-radius: 50%;
+      mix-blend-mode: difference;
+      pointer-events: none;
+      z-index: 9998;
+      transform: translate(-50%, -50%);
+      }
+
+      #custom-cursor.pointer {
+        background-image: url('/pointer.png');
+      }
+
+
   .loading-logo {
   width: 150px;
   height: auto;
@@ -109,6 +139,9 @@
 
   
   <body>
+
+    <div id="custom-cursor"></div>
+    <div id="custom-pointer"></div>
 
 
 <div class="progress-bar-container">
@@ -146,8 +179,8 @@
   color: #00f5cc;
   border: 1px solid #00f5cc;
   border-radius: 5px;
-  cursor: pointer;
-  z-index: 9999;
+  cursor: none;
+  z-index: 9995;
   touch-action: manipulation;
 ">
   BACK

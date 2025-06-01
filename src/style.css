@@ -36,6 +36,18 @@ body {
   touch-action: manipulation;
 }
 
+#custom-cursor {
+  position: fixed;
+  width: 64px;
+  height: 64px;
+  pointer-events: none;
+  z-index: 9999;
+  background: url('/public/cursor.png') no-repeat center center;
+  background-size: contain;
+  mix-blend-mode: difference; /* optional style */
+}
+
+
 #progress-bar {
   #progress-bar {
   width: clamp(200px, 30%, 400px); /* between 200px and 400px */
