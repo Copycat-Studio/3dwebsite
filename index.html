@@ -26,6 +26,7 @@
         flex-direction: column;
         justify-content: center;
         align-items: center;
+        z-index: 99999;
       }
 
       #progress-bar {
@@ -111,6 +112,27 @@
       #custom-cursor.pointer {
         background-image: url('/pointer.png');
       }
+  
+      .shoe-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-image: url('/assets/shoe-bg.jpg'); /* Change to your path */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 9991; /* 🔑 Push below the WebGL canvas */
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none; /* Ensure it doesn’t block mouse/touch */
+}
+.shoe-background.active {
+  opacity: 1;
+}
+
+
 
 
   .loading-logo {
@@ -131,6 +153,42 @@
   margin-top: 3rem;
 }
 
+.bottom-menu {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  z-index: 9990;
+  pointer-events: auto;
+  padding: 0 1rem;
+  flex-wrap: nowrap;
+}
+
+.menu-btn {
+  width: 15vw;              /* Responsive size based on screen width */
+  max-width: 128px;          /* Prevent from getting too big on tablets */
+  height: auto;
+  cursor: none;
+  object-fit: contain;
+  transition: transform 0.2s ease;
+  touch-action: manipulation;
+}
+
+.menu-btn:hover {
+  transform: scale(1.1);
+}
+
+@media (min-width: 768px) {
+  .menu-btn {
+    width: 80px;
+    max-width: 100px;
+  }
+}
+
+
 
       }
     </style>
@@ -141,6 +199,16 @@
 
     <div id="custom-cursor"></div>
     <div id="custom-pointer"></div>
+    <div id="shoe-bg" class="shoe-background"></div>
+
+
+    $$$<div id="option-menu" class="bottom-menu">
+  $$$<img class="menu-btn" data-hitbox="hitbox_menu" src="/textures/button_portfolio.png" />
+  $$$<img class="menu-btn" data-hitbox="hitbox_back" src="/textures/button_show.png"  />
+  $$$<img class="menu-btn" data-hitbox="hitbox_table" src="/textures/button_contact.png" />
+  $$$<img class="menu-btn" data-hitbox="hitbox_shoes" src="/textures/button_back.png" />
+$$$$</div>
+
 
 
 <div class="progress-bar-container">
@@ -168,25 +236,22 @@
   click to open
 </div>
 
-<button id="reset-btn" style="
+<img id="reset-btn" src="/textures/reset.png" alt="Reset" style="
   display: none;
   position: fixed;
   top: 1rem;
   right: 1rem;
-  padding: 0.6rem 1rem;
-  font-size: 1rem;
-  font-family: 'Orbitron', sans-serif;
-  background: rgba(0,0,0,0.85);
-  color: #00f5cc;
-  border: 1px solid #00f5cc;
-  border-radius: 5px;
+  width: 120px;
+  height: auto;
   cursor: none;
   z-index: 9995;
   touch-action: manipulation;
-">
-  BACK
-</button>
+  pointer-events: auto;
+" />
+
 
   <script type="module" src="/src/main.js"></script>
+
+  
   </body>
 </html>

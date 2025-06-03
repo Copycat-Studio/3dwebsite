@@ -159,10 +159,13 @@ controls.minPolarAngle = Math.PI / 3;
 controls.maxPolarAngle = Math.PI / 2;
 controls.minDistance = 1.5;
 controls.maxDistance = 12;
+controls.maxAzimuthAngle = Infinity;
+controls.maxAzimuthAngle = Infinity;
 const defaultControlsRange = {
   minDistance: 1.5,
   maxDistance: 12
 };
+
 
 
 scene.add(new THREE.AmbientLight(0xffffff, .5));
@@ -270,7 +273,9 @@ const hitboxMap = {
     model: 'back',
     controls: {
     minDistance: .5,
-    maxDistance: 6.0
+    maxDistance: 6.0,
+  minAzimuthAngle: -Math.PI / 1, 
+  maxAzimuthAngle: Math.PI / 1
   }
   },
   'hitbox_menu': {
@@ -280,8 +285,10 @@ const hitboxMap = {
     },
     model: 'menu',
     controls: {
-    minDistance: 2.0,
-    maxDistance: 6.0
+    minDistance: .1,
+    maxDistance: 6.0,
+  minAzimuthAngle: -Math.PI / 1, 
+  maxAzimuthAngle: Math.PI / 1
   }
   },
   'hitbox_hood': {
@@ -292,7 +299,9 @@ const hitboxMap = {
     model: 'hood',
     controls: {
     minDistance: 2.0,
-    maxDistance: 6.0
+    maxDistance: 6.0,
+  minAzimuthAngle: -Math.PI / 1, 
+  maxAzimuthAngle: Math.PI / 1
   }
   },
    'hitbox_engine': {
@@ -303,7 +312,9 @@ const hitboxMap = {
     model: 'engine',
     controls: {
     minDistance: 1,
-    maxDistance: 2
+    maxDistance: 2,
+  minAzimuthAngle: -Math.PI / -6, 
+  maxAzimuthAngle: Math.PI / -1
   }
   },
    'hitbox_shoes': {
@@ -314,7 +325,9 @@ const hitboxMap = {
     model: 'shoes',
   controls: {
     minDistance: .5,
-    maxDistance: 1.5
+    maxDistance: 1.5,
+  minAzimuthAngle: -Math.PI / -3, 
+  maxAzimuthAngle: Math.PI / -1 
   }
   },
   'hitbox_guide': {
@@ -324,8 +337,10 @@ const hitboxMap = {
     },
     model: 'guide',
   controls: {
-    minDistance: 2.0,
-    maxDistance: 6.0
+    minDistance: 1,
+    maxDistance: 10,
+  minAzimuthAngle: -Math.PI / 1, 
+  maxAzimuthAngle: Math.PI / 1
   }
   }
 };
@@ -359,6 +374,8 @@ function resetSceneState() {
     console.log('🔒 Reset button hidden again');
   }
 
+  controls.minAzimuthAngle = -Infinity;
+controls.maxAzimuthAngle = Infinity;
 controls.minDistance = defaultControlsRange.minDistance;
 controls.maxDistance = defaultControlsRange.maxDistance;
 console.log('🔄 Reset controls zoom limits');
@@ -368,6 +385,7 @@ console.log('🔄 Reset controls zoom limits');
   signsSwapEnabled = true;
   toggleEntityState('generator', true);
   toggleEntityState('robot', true);
+
 
   // 🔄 Restore model visibility unless locked
 Object.entries(modelRefs).forEach(([name, model]) => {
@@ -405,6 +423,7 @@ Object.entries(modelRefs).forEach(([name, model]) => {
   hoodHoverLocked = false;
   backHoverLocked = false;
   hasHoveredBack = false;
+  toggleShoeBackground(false);
 
   // 🧭 Restore sign swap state
   if (modelRefs['sign1']) modelRefs['sign1'].visible = true;
@@ -457,7 +476,7 @@ Object.entries(modelRefs).forEach(([name, model]) => {
       }
     });
 
-['shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol'].forEach(name => {
+['shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol', 'shoes_bg'].forEach(name => {
   const model = modelRefs[name];
   if (model) {
     model.visible = false;
@@ -521,6 +540,31 @@ function reverseAllCamClips(modelName = 'focus_cam', speed = 1) {
       console.log(`⏪ Reversing "${clip.name}" on "${modelName}"`);
     }
   });
+}
+
+function applyOrbitLimits(config) {
+  controls.minDistance = config.minDistance ?? controls.minDistance;
+  controls.maxDistance = config.maxDistance ?? controls.maxDistance;
+
+  if ('minAzimuthAngle' in config && 'maxAzimuthAngle' in config) {
+    controls.minAzimuthAngle = config.minAzimuthAngle;
+    controls.maxAzimuthAngle = config.maxAzimuthAngle;
+  } else {
+    const currentAzimuth = controls.getAzimuthalAngle();
+    const delta = Math.PI / 4;
+    controls.minAzimuthAngle = currentAzimuth - delta;
+    controls.maxAzimuthAngle = currentAzimuth + delta;
+  }
+
+  controls.update();
+}
+
+// ==== UI works =====
+
+function toggleShoeBackground(show = true) {
+  const bg = document.getElementById('shoe-bg');
+  if (!bg) return;
+  bg.classList.toggle('active', show);
 }
 
 // === Tween Helper ===
@@ -830,7 +874,7 @@ const modelNames = [
   'ground', 'robot', 'robot1', 'robot2', 'sign1', 'sign2', 'menu', 'back', 'guide',
   'background', 'logo', 'person',
   // shoes
-   'shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol',
+   'shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol', 'shoes_bg',
     //cam
   'cam_engine', 'cam_guide','cam_custom','cam_menu', 'cam_hood', 'cam_shoes',
   'cam_hoodmobile', 'cam_custommobile', 'cam_menumobile', 'cam_enginemobile',
@@ -838,6 +882,7 @@ const modelNames = [
   'hitbox_menu', 'hitbox_table', 'hitbox_hood', 'hitbox_back', 'hitbox_cable', 'hitbox_shoes',
   'hitbox_app', 'focus_cam', 'hitbox_vr', 'hitbox_immersive', 'hitbox_guide', 'hitbox_speaker',
   'hitbox_reel', 'hitbox_engine', 'hitbox_engine1', 'hitbox_engine2', 'hitbox_engine3',
+  'hitbox_block',
     //icon 
   'icon_shoes', 'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive',
   'engine_corebroken','engine_core', 'engine_top', 'engine_cover', 'engine_fan', 'engine_base', 'engine_background'
@@ -850,7 +895,10 @@ function loadModel(name) {
     scene.add(model);
     modelRefs[model.name] = model;
 
-   if (['engine_core', 'shoes', 'shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol'].includes(name)) {
+   if ([
+    'engine_core', 'shoes', 'shoes_bot', 'shoes_body', 
+    'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol', 'shoes_bg'
+   ].includes(name)) {
   model.visible = false; // ✅ Hide on load
 }
 
@@ -900,6 +948,8 @@ console.log(`🌍 World position of "${model.name}":`, worldPos.toArray());
 
     model.traverse((child) => {
   if (child.name) child.name = child.name.toLowerCase();
+
+  
 
   //====init hitbox hide====
 if (child.name && ['hitbox_app', 'hitbox_vr', 'hitbox_immersive', 'hitbox_reel', 'hitbox_shoes'].includes(child.name)) {
@@ -982,6 +1032,34 @@ function onModelLoaded() {
 }
 
 //====== FINISH LOADING=====
+
+document.querySelectorAll('.menu-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const hitboxName = btn.dataset.hitbox;
+    triggerHitboxAction(hitboxName);
+  });
+});
+
+
+// 👇 Fake hitbox handler
+function onClickFromUI(fakeHitbox) {
+  console.log(`🖱️ Simulating hitbox click: ${fakeHitbox.name}`);
+  const mapping = hitboxMap[fakeHitbox.name];
+  if (!mapping) return console.warn(`❌ No mapping for ${fakeHitbox.name}`);
+
+  let { cam, model, controls: controlLimits } = mapping;
+  if (typeof cam === 'object') {
+    cam = isMobileDevice() ? cam.mobile : cam.desktop;
+  }
+
+  const camTarget = camTargets[cam];
+  currentFocus = modelRefs['focus_cam'];
+
+  if (controlLimits) applyOrbitLimits(controlLimits); // from earlier step
+  if (camTarget) tweenToCamera(camTarget, model);
+
+  // Optional: launch hover effects / animations etc here too
+}
 
 function createOutline(model, color = 0xffff00, scale = 1.1) {
   const outlineGroup = new THREE.Group();
@@ -1633,11 +1711,25 @@ if (mapping) {
   currentFocus = modelRefs['focus_cam'];
 
   // ⛳ Update camera zoom ranges if defined
-  if (controlLimits) {
-    controls.minDistance = controlLimits.minDistance ?? controls.minDistance;
-    controls.maxDistance = controlLimits.maxDistance ?? controls.maxDistance;
-    console.log(`🎯 Custom controls for ${obj.name} applied`);
-  }
+if (controlLimits) {
+  controls.minDistance = controlLimits.minDistance ?? controls.minDistance;
+  controls.maxDistance = controlLimits.maxDistance ?? controls.maxDistance;
+
+    if ('minAzimuthAngle' in controlLimits && 'maxAzimuthAngle' in controlLimits) {
+    controls.minAzimuthAngle = controlLimits.minAzimuthAngle;
+    controls.maxAzimuthAngle = controlLimits.maxAzimuthAngle;
+  } else {
+    // 🔄 Relative lock based on current azimuth
+    const currentAzimuth = controls.getAzimuthalAngle();
+    const delta = Math.PI / 12; // 👁️ 30 degree window
+
+    controls.minAzimuthAngle = currentAzimuth - delta;
+    controls.maxAzimuthAngle = currentAzimuth + delta;
+
+  console.log(`🎯 Custom OrbitControl limits for ${obj.name} applied`);
+}
+}
+
 
   if (camTarget) {
     tweenToCamera(camTarget, model);
@@ -1760,7 +1852,7 @@ if (obj.name === 'hitbox_guide') {
       launchHitboxLift2();
       launchHitboxLift3();
       stopAutoOutlinePulse();
-moveModelToOffsetXYZ('focus_cam', { x: 1.1818594932556152, y: 0.44219231605529785, z: -1.7928889989852905 }, 1000);
+moveModelToOffsetXYZ('focus_cam', { x: 1.25, y: 0.6, z: -1.7928889989852905 }, 1000);
    controls.enabled = false;
 }
 
@@ -1898,7 +1990,7 @@ if (obj.name === 'hitbox_table') {
 }
 
 if (obj.name === 'hitbox_speaker') {
-  toggleSpeakerState();
+  toggleEntityState('speaker');
   return;
 }
 
@@ -1909,7 +2001,8 @@ if (obj.name === 'hitbox_shoes') {
     shoes_plastic: 'nla_splastic',
     shoes_rubber: 'nla_srubber',
     shoes_carbon: 'nla_scarbon',
-    shoes_sol: 'nla_ssol'
+    shoes_sol: 'nla_ssol',
+    shoes_bg: 'nono'
   };
 
 toggleEntityState('generator', false);
@@ -1928,26 +2021,24 @@ toggleEntityState('robot', false);
   }, 1000); 
 
   moveHitboxY('hitbox_shoes', 500);
-  moveModelToOffsetXYZ('focus_cam', { x: -2.65588, y: 0.669898, z: 0.508959 }, 1000);
+  moveModelToOffsetXYZ('focus_cam', { x: -2.6, y: 0.68, z: 0.4 }, 200);
 
   controls.enabled = true;
   signsSwapEnabled = false;
+  toggleShoeBackground(true);
 
 
   Object.entries(modelRefs).forEach(([name, model]) => {
-    if (!name.startsWith('shoes')) {
+    if (!name.startsWith('shoes_')) {
       model.visible = false;
     }
   });
 
   return;
 }
-
-
-
 }
 
-
+/// ====click end======
  
 window.addEventListener('mousemove', onMouseMove);
 
