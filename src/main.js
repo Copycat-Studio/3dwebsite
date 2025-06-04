@@ -240,6 +240,9 @@ loadingManager.onError = function(url) {
 
 
 const loader = new GLTFLoader(loadingManager);
+loader.load('/textures/my_bg.jpg', texture => {
+  scene.background = texture;
+});
 const modelRefs = {};
 const camTargets = {};
 const captionMap = {
@@ -680,12 +683,12 @@ rgbeLoader.load('/textures/hdr.hdr', function (hdrEquirect) {
   // 🔥 Turn HDR OFF
   setTimeout(() => {
     scene.environment = null;
-    scene.background = new THREE.Color(0x000000);
+    scene.background = null;
 
     // 🔁 Turn HDR ON
     setTimeout(() => {
       scene.environment = originalEnvMap;
-      scene.background = originalEnvMap;
+      scene.background = null;
 
       renderer.compile(scene, camera); // 🧠 optional: pre-compile shaders
       console.log('✅ HDR pre-warmed and ready');
@@ -874,7 +877,7 @@ const modelNames = [
   'ground', 'robot', 'robot1', 'robot2', 'sign1', 'sign2', 'menu', 'back', 'guide',
   'background', 'logo', 'person',
   // shoes
-   'shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol', 'shoes_bg',
+   'shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol', 'shoes_bg1',
     //cam
   'cam_engine', 'cam_guide','cam_custom','cam_menu', 'cam_hood', 'cam_shoes',
   'cam_hoodmobile', 'cam_custommobile', 'cam_menumobile', 'cam_enginemobile',
@@ -1031,35 +1034,17 @@ function onModelLoaded() {
   }
 }
 
+
+
 //====== FINISH LOADING=====
 
 document.querySelectorAll('.menu-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const hitboxName = btn.dataset.hitbox;
-    triggerHitboxAction(hitboxName);
+    triggerHitboxClick(hitboxName);
   });
 });
 
-
-// 👇 Fake hitbox handler
-function onClickFromUI(fakeHitbox) {
-  console.log(`🖱️ Simulating hitbox click: ${fakeHitbox.name}`);
-  const mapping = hitboxMap[fakeHitbox.name];
-  if (!mapping) return console.warn(`❌ No mapping for ${fakeHitbox.name}`);
-
-  let { cam, model, controls: controlLimits } = mapping;
-  if (typeof cam === 'object') {
-    cam = isMobileDevice() ? cam.mobile : cam.desktop;
-  }
-
-  const camTarget = camTargets[cam];
-  currentFocus = modelRefs['focus_cam'];
-
-  if (controlLimits) applyOrbitLimits(controlLimits); // from earlier step
-  if (camTarget) tweenToCamera(camTarget, model);
-
-  // Optional: launch hover effects / animations etc here too
-}
 
 function createOutline(model, color = 0xffff00, scale = 1.1) {
   const outlineGroup = new THREE.Group();
@@ -1666,15 +1651,11 @@ cursor.classList.add('pointer');
 
   captionEl.style.display = 'none';
 }
-
   document.body.style.cursor = newHoveredHitbox ? 'pointer' : 'default';
-
-
 }
 
 function onClick(e) {
   if (inputLocked) return;
-
 
   raycaster.setFromCamera(mouse, camera);
   const intersects = raycaster.intersectObjects(scene.children, true);
@@ -1682,6 +1663,20 @@ function onClick(e) {
 
   let obj = intersects[0].object;
   while (obj.parent && obj.parent !== scene) obj = obj.parent;
+
+  if (obj.name?.startsWith('hitbox_')) {
+    handleHitboxClick(obj);
+    const disableBtnOn = ['hitbox_menu', 'hitbox_guide', 'hitbox_back', 'hitbox_hood'];
+if (disableBtnOn.includes(obj.name)) {
+  console.log(`🔒 Disabling buttons due to ${obj.name} click`);
+
+  // disable specific buttons by ID
+  document.getElementById('button_portfolio')?.classList.add('disabled');
+  document.getElementById('button_show')?.classList.add('disabled');
+   document.getElementById('button_contact')?.classList.add('disabled');
+}
+
+  }
 
 // camera movement
 
@@ -1827,14 +1822,14 @@ playSFX(sfxName)
   if (isHDREnabled) {
      setTimeout(() => {
     scene.environment = originalEnvMap;
-    scene.background = originalEnvMap;
+    scene.background = null;
     console.log('🌄 HDR enabled');
     }, 500);
   } else {
     // ☠️ Disable HDR (use null or black texture)
     if (!originalEnvMap) originalEnvMap = scene.environment;
     scene.environment = null;
-    scene.background = new THREE.Color(0x000000); // or use a solid color
+    scene.background = null; // or use a solid color
     console.log('🌑 HDR disabled');
   }
   return;
@@ -1846,7 +1841,6 @@ if (obj.name === 'hitbox_immersive') {
   return;
 }
 
-
 if (obj.name === 'hitbox_guide') {
    launchHitboxLift1();
       launchHitboxLift2();
@@ -1855,8 +1849,6 @@ if (obj.name === 'hitbox_guide') {
 moveModelToOffsetXYZ('focus_cam', { x: 1.25, y: 0.6, z: -1.7928889989852905 }, 1000);
    controls.enabled = false;
 }
-
-
 
 if (obj.name === 'hitbox_back') {
   if (inputLocked) return; // ⛔ prevent spamming
@@ -1995,6 +1987,7 @@ if (obj.name === 'hitbox_speaker') {
 }
 
 if (obj.name === 'hitbox_shoes') {
+
   const shoeAnimations = {
     shoes_bot: 'nla_sbot',
     shoes_body: 'nla_sbody',
@@ -2037,6 +2030,181 @@ toggleEntityState('robot', false);
   return;
 }
 }
+
+function handleHitboxClick(obj) {
+  if (!obj?.name?.startsWith('hitbox_')) return;
+
+  console.log(`🖱️ Clicked: ${obj.name}`);
+
+  const resetBtn = document.getElementById('reset-btn');
+  if (resetBtn && resetBtn.style.display === 'none') {
+    resetBtn.style.display = 'block';
+    resetBtn.disabled = false;
+    console.log('🔓 Reset button revealed');
+  }
+
+  const mapping = hitboxMap[obj.name];
+  if (mapping) {
+    let { cam, model, controls: controlLimits } = mapping;
+    if (typeof cam === 'object') {
+      cam = isMobileDevice() ? cam.mobile : cam.desktop;
+    }
+
+    const camTarget = camTargets[cam];
+    currentFocus = modelRefs['focus_cam'];
+
+    if (controlLimits) {
+      controls.minDistance = controlLimits.minDistance ?? controls.minDistance;
+      controls.maxDistance = controlLimits.maxDistance ?? controls.maxDistance;
+      if ('minAzimuthAngle' in controlLimits && 'maxAzimuthAngle' in controlLimits) {
+        controls.minAzimuthAngle = controlLimits.minAzimuthAngle;
+        controls.maxAzimuthAngle = controlLimits.maxAzimuthAngle;
+      } else {
+        const currentAzimuth = controls.getAzimuthalAngle();
+        const delta = Math.PI / 12;
+        controls.minAzimuthAngle = currentAzimuth - delta;
+        controls.maxAzimuthAngle = currentAzimuth + delta;
+        console.log(`🎯 Custom OrbitControl limits for ${obj.name} applied`);
+      }
+    }
+
+    if (camTarget) {
+      tweenToCamera(camTarget, model);
+    } else {
+      console.warn(`❌ Camera target "${cam}" not found.`);
+    }
+  }
+
+  // 🔁 Custom behavior per-hitbox (copied from your original logic)
+  switch (obj.name) {
+    case 'hitbox_hood':
+      if (inputLocked) return;
+      inputLocked = true;
+      setTimeout(() => inputLocked = false, 700);
+      launchHitboxLift1();
+      launchHitboxLift2();
+      stopAutoOutlinePulse();
+      playHoodClip('nla_hoodAction');
+      playSFX('hoodfull');
+      moveModelToOffsetXYZ('focus_cam', {
+        x: 2.0016531944274902,
+        y: 0.3605214059352875,
+        z: -0.33794140815734863
+      }, 1000);
+      hoodHoverLocked = true;
+      controls.enabled = false;
+      if (obj.parent) obj.parent.remove(obj);
+      break;
+
+    case 'hitbox_menu':
+      launchHitboxLift1();
+      stopAutoOutlinePulse();
+      playSFX('menu');
+      moveModelToOffsetXYZ('focus_cam', {
+        x: -0.19776688516139984,
+        y: 1.1592967510223389,
+        z: -0.3411976993083954
+      }, 1000);
+      controls.enabled = false;
+      if (inputLocked) return;
+      inputLocked = true;
+      setTimeout(() => inputLocked = false, 700);
+      setTimeout(() => {
+        ['hitbox_app', 'hitbox_vr', 'hitbox_immersive', 'hitbox_reel'].forEach(name => {
+          const hitbox = modelRefs['menu']?.getObjectByName(name);
+          if (hitbox) {
+            hitbox.visible = true;
+            hitbox.userData.disabled = false;
+          }
+        });
+
+        const menuModel = modelRefs['menu'];
+        if (menuModel) {
+          menuModel.visible = false;
+          ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel'].forEach(iconName => {
+            const icon = modelRefs[iconName];
+            if (icon) icon.visible = true;
+          });
+        }
+      }, 1000);
+      break;
+
+    case 'hitbox_back':
+      if (inputLocked) return;
+      inputLocked = true;
+      setTimeout(() => inputLocked = false, 700);
+      moveHitboxY('hitbox_back', 500);
+      playSFX('backfull');
+      playModelClip('back', 'nla_backall', 1);
+      launchHitboxLift4();
+      launchHitboxLift2();
+      launchHitboxLift3();
+      moveModelToOffsetXYZ('focus_cam', {
+        x: -2.756675672531128,
+        y: 0.7532350611686707,
+        z: 0
+      }, 1000);
+      controls.enabled = false;
+      backHoverLocked = true;
+      setTimeout(() => modelRefs['icon_shoes'].visible = true, 600);
+      break;
+
+    case 'hitbox_table':
+     stopAutoOutlinePulse();
+  console.log('💬 hitbox_table clicked → Opening WhatsApp...');
+  const phone = '6283820299086'; // use your full international number
+  const message = encodeURIComponent('Hi! I want to get a reservation — let’s talk.');
+  const url = `https://wa.me/${phone}?text=${message}`;
+  window.open(url, '_blank');
+      break;
+
+    //case 'hitbox_shoes':
+     // toggleShoeBackground(true);
+     // break;
+
+    default:
+      console.log(`ℹ️ No special logic for ${obj.name}`);
+  }
+}
+
+document.querySelectorAll('.menu-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const action = btn.dataset.action;
+    const hitboxName = btn.dataset.hitbox;
+
+    if (action === 'reset') {
+      console.log('🔁 Reset button clicked via bottom bar');
+      resetSceneState();
+
+      // ✅ Re-enable buttons
+      document.getElementById('button_portfolio')?.classList.remove('disabled');
+      document.getElementById('button_show')?.classList.remove('disabled');
+      document.getElementById('button_contact')?.classList.remove('disabled');
+      return;
+    }
+
+    if (hitboxName) {
+      const model = modelRefs[hitboxName];
+      const hitbox = model?.getObjectByName(hitboxName);
+      if (hitbox) {
+        handleHitboxClick(hitbox);
+
+        // ✅ If menu or back was clicked, disable both
+        if (hitboxName === 'hitbox_menu' || hitboxName === 'hitbox_back') {
+          document.getElementById('button_portfolio')?.classList.add('disabled');
+          document.getElementById('button_show')?.classList.add('disabled');
+           document.getElementById('button_contact')?.classList.add('disabled');
+        }
+      } else {
+        console.warn(`⚠️ Button target "${hitboxName}" not found.`);
+      }
+    }
+  });
+});
+
+
+
+
 
 /// ====click end======
  

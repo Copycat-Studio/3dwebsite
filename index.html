@@ -160,7 +160,7 @@
   transform: translateX(-50%);
   display: flex;
   justify-content: center;
-  gap: 1rem;
+  gap: .4rem;
   z-index: 9990;
   pointer-events: auto;
   padding: 0 1rem;
@@ -168,13 +168,19 @@
 }
 
 .menu-btn {
-  width: 15vw;              /* Responsive size based on screen width */
-  max-width: 128px;          /* Prevent from getting too big on tablets */
+  width: 15vw;
   height: auto;
-  cursor: none;
+  max-width: 128px;
   object-fit: contain;
+  cursor: none;
   transition: transform 0.2s ease;
   touch-action: manipulation;
+}
+
+.menu-btn.disabled {
+  opacity: 0.3;
+  pointer-events: none;
+  filter: grayscale(100%);
 }
 
 .menu-btn:hover {
@@ -202,12 +208,14 @@
     <div id="shoe-bg" class="shoe-background"></div>
 
 
-    $$$<div id="option-menu" class="bottom-menu">
-  $$$<img class="menu-btn" data-hitbox="hitbox_menu" src="/textures/button_portfolio.png" />
-  $$$<img class="menu-btn" data-hitbox="hitbox_back" src="/textures/button_show.png"  />
-  $$$<img class="menu-btn" data-hitbox="hitbox_table" src="/textures/button_contact.png" />
-  $$$<img class="menu-btn" data-hitbox="hitbox_shoes" src="/textures/button_back.png" />
-$$$$</div>
+   <div id="option-menu" class="bottom-menu">
+<img id="button_portfolio" class="menu-btn" data-hitbox="hitbox_menu" src="/textures/button_portfolio.png" />
+<img id="button_show" class="menu-btn" data-hitbox="hitbox_back" src="/textures/button_show.png" />
+<img id="button_contact" class="menu-btn" data-hitbox="hitbox_table" src="/textures/button_contact.png" />
+<img id="button_back" class="menu-btn" data-action="reset" src="/textures/button_back.png" />
+<img id="button_extra" class="menu-btn small-btn" data-action="extra" src="/textures/button_help.png" />
+
+</div>
 
 
 
@@ -235,19 +243,6 @@ $$$$</div>
 ">
   click to open
 </div>
-
-<img id="reset-btn" src="/textures/reset.png" alt="Reset" style="
-  display: none;
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  width: 120px;
-  height: auto;
-  cursor: none;
-  z-index: 9995;
-  touch-action: manipulation;
-  pointer-events: auto;
-" />
 
 
   <script type="module" src="/src/main.js"></script>
