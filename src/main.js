@@ -633,6 +633,19 @@ function isMobileDevice() {
   return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
+  if (!isMobileDevice()) {
+  const customCursor = document.getElementById('custom-cursor');
+  const customPointer = document.getElementById('custom-pointer');
+
+  document.addEventListener('mousemove', e => {
+    customCursor.style.left = `${e.clientX}px`;
+    customCursor.style.top = `${e.clientY}px`;
+
+    customPointer.style.left = `${e.clientX}px`;
+    customPointer.style.top = `${e.clientY}px`;
+  });
+}
+
 function pulseHighlight(modelName, color = 0xffff00, duration = 1000) {
   const model = modelRefs[modelName];
   if (!model) return console.warn(`❌ Model ${modelName} not found.`);
