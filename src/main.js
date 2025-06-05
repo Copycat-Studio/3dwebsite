@@ -159,7 +159,7 @@ controls.minPolarAngle = Math.PI / 3;
 controls.maxPolarAngle = Math.PI / 2;
 controls.minDistance = 1.5;
 controls.maxDistance = 12;
-controls.maxAzimuthAngle = Infinity;
+controls.minAzimuthAngle = -Infinity;
 controls.maxAzimuthAngle = Infinity;
 const defaultControlsRange = {
   minDistance: 1.5,
@@ -365,17 +365,14 @@ let signsSwapEnabled = true;
 let visibilityLock = {};
 let isHDREnabled = true;
 let originalEnvMap = null; // for restoring later
+let isMuted = false;
+
 
 function resetSceneState() {
   console.log('🔁 Reset triggered (button or ESC)...');
 
   // 🔒 Hide reset button
-  const resetBtn = document.getElementById('reset-btn');
-  if (resetBtn) {
-    resetBtn.style.display = 'none';
-    resetBtn.disabled = false;
-    console.log('🔒 Reset button hidden again');
-  }
+
 
   controls.minAzimuthAngle = -Infinity;
 controls.maxAzimuthAngle = Infinity;
@@ -1038,6 +1035,19 @@ function onModelLoaded() {
 
 //====== FINISH LOADING=====
 
+function triggerHitboxClick(name) {
+  const model = Object.values(modelRefs).find(m => m.getObjectByName(name));
+  const hitbox = model?.getObjectByName(name);
+  if (hitbox) {
+    handleHitboxClick(hitbox);
+  } else {
+    console.warn(`❌ No hitbox found: ${name}`);
+  }
+}
+
+
+//==== Buttons =====
+
 document.querySelectorAll('.menu-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const hitboxName = btn.dataset.hitbox;
@@ -1045,6 +1055,31 @@ document.querySelectorAll('.menu-btn').forEach(btn => {
   });
 });
 
+const muteBtn = document.getElementById('button_speaker');
+
+muteBtn?.addEventListener('click', () => {
+  isMuted = !isMuted;
+
+  muteBtn.src = isMuted 
+    ? '/textures/button_mute2.png' 
+    : '/textures/button_mute1.png';
+
+  triggerHitboxClick('hitbox_speaker');
+
+  console.log(`🔊 Mute button toggled: ${isMuted ? 'MUTED' : 'UNMUTED'}`);
+});
+
+const helpBtn = document.getElementById('button_extra');
+  const helpImgBottom = document.getElementById('help-img-bottom');
+  const helpImgCenter = document.getElementById('help-img-center');
+
+  let helpVisible = false;
+
+  helpBtn.addEventListener('click', () => {
+    helpVisible = !helpVisible;
+    helpImgBottom.style.display = helpVisible ? 'block' : 'none';
+    helpImgCenter.style.display = helpVisible ? 'block' : 'none';
+     });
 
 function createOutline(model, color = 0xffff00, scale = 1.1) {
   const outlineGroup = new THREE.Group();
@@ -1684,14 +1719,6 @@ if (disableBtnOn.includes(obj.name)) {
 
   console.log(`🖱️ Clicked: ${obj.name}`);
 
-  // Show reset button after any hitbox_ is clicked
-const resetBtn = document.getElementById('reset-btn');
-if (resetBtn && resetBtn.style.display === 'none') {
-  resetBtn.style.display = 'block';
-  resetBtn.disabled = false;
-  console.log('🔓 Reset button revealed');
-}
-
 
 const mapping = hitboxMap[obj.name];
 if (mapping) {
@@ -1877,12 +1904,7 @@ toggleEntityState('robot', false);
   if (inputLocked) return; // ⛔ prevent spamming
   inputLocked = true;
   setTimeout(() => inputLocked = false, 700);
-  const resetBtn = document.getElementById('reset-btn');
-  if (resetBtn) {
-    resetBtn.style.display = 'none';
-    resetBtn.disabled = true;
-    console.log('🔒 Reset button disabled');
-  }
+
 moveModelToOffsetXYZ('focus_cam', { x: 2.0016531944274902, y: 0.3605214059352875, z: -0.36794140815734863 }, 1000); 
 
 console.log('🔍 Isolating engine models...');
@@ -1902,12 +1924,6 @@ if (obj.name === 'hitbox_engine1') {
   if (inputLocked) return; // ⛔ prevent spamming
   inputLocked = true;
   setTimeout(() => inputLocked = false, 700);
-    const resetBtn = document.getElementById('reset-btn');
-  if (resetBtn) {
-    resetBtn.style.display = 'none';
-    resetBtn.disabled = true;
-    console.log('🔒 Reset button disabled');
-  }
 
 playSFX('right1');
 playModelClipOnce('engine_cover', 'nla_encover', 1);
@@ -1919,12 +1935,6 @@ if (obj.name === 'hitbox_engine2') {
   if (inputLocked) return; // ⛔ prevent spamming
   inputLocked = true;
   setTimeout(() => inputLocked = false, 700);
-    const resetBtn = document.getElementById('reset-btn');
-  if (resetBtn) {
-    resetBtn.style.display = 'none';
-    resetBtn.disabled = true;
-    console.log('🔒 Reset button disabled');
-  }
 
 playSFX('right1');
 playModelClipOnce('engine_base', 'nla_enbase', 1);
@@ -1934,12 +1944,6 @@ return;
 }
 
 if (obj.name === 'hitbox_engine3') {
-    const resetBtn = document.getElementById('reset-btn');
-  if (resetBtn) {
-    resetBtn.style.display = 'none';
-    resetBtn.disabled = true;
-    console.log('🔒 Reset button disabled');
-  }
   hideUntilRemoved('engine_core', 'engine_corebroken');
   playSFX('right1');
 
@@ -2036,13 +2040,6 @@ function handleHitboxClick(obj) {
 
   console.log(`🖱️ Clicked: ${obj.name}`);
 
-  const resetBtn = document.getElementById('reset-btn');
-  if (resetBtn && resetBtn.style.display === 'none') {
-    resetBtn.style.display = 'block';
-    resetBtn.disabled = false;
-    console.log('🔓 Reset button revealed');
-  }
-
   const mapping = hitboxMap[obj.name];
   if (mapping) {
     let { cam, model, controls: controlLimits } = mapping;
@@ -2128,6 +2125,11 @@ function handleHitboxClick(obj) {
         }
       }, 1000);
       break;
+
+ case 'hitbox_speaker':
+  toggleEntityState('speaker');
+  break;
+
 
     case 'hitbox_back':
       if (inputLocked) return;
