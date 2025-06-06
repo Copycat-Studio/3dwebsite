@@ -47,6 +47,7 @@ window.addEventListener('mousemove', (e) => {
   pointer.style.top = `${y}px`;
 });
 
+
 const DEBUG = true; // ✅ flip to false to silence logs
 window.DEBUG = true; // 👈 make it global
 const hitboxOriginalPositions = {};
@@ -103,6 +104,7 @@ function moveHitboxY(name, toOffsetY = 500, duration = 0) {
     })
     .start();
 }
+
 
 function moveModelToOffsetXYZ(modelName, offset = { x: 0, y: 0, z: 0 }, duration = 650) {
   const model = modelRefs[modelName];
@@ -261,11 +263,17 @@ const captionMap = {
   'hitbox_table' : 'Book Now!',
   'hitbox_cable' : 'Light Switch',
   'hitbox_speaker' : 'Music On/Off',
-  'hitbox_shoes' : 'See Detail'
+  'hitbox_shoes' : 'See Detail',
+  'hitbox_sbody' : 'UPPER<br><br>Stylish shoes, with combination of suede and canvas<br>have details on leather and so on<br><br>Model 3D Scanned from Compass® Velocity®',
+  'hitbox_sbot' : 'OUTSOLE<br><br>loren ipsum heuheuuy<br><br>Model 3D Scanned from Compass® Velocity®', 
+  'hitbox_splas' : 'HEEL COUNTER<br><br>loren ipsum heuheuuy<br><br>Model 3D Scanned from Compass® Velocity®',
+  'hitbox_scarb' : 'CARBON SHANK<br><br>loren ipsum heuheuuy<br><br>Model 3D Scanned from Compass® Velocity®', 
+  'hitbox_srubb' : 'RUBBER UNIT<br><br>loren ipsum heuheuuy<br><br>Model 3D Scanned from Compass® Velocity®',
+  'hitbox_ssol' : 'MIDSOLE<br><br>loren ipsum heuheuuy<br><br>Model 3D Scanned from Compass® Velocity®'
 };
 
 
-//======camera list=====
+//====== camera list =====
 
 const hitboxMap = {
   'hitbox_back': {
@@ -353,7 +361,7 @@ const toggleState = {
   // add more toggles here
 };
 
-//=====letlist=====
+//=====let list=====
 let currentFocus = null;
 let mainCamTransform = null;
 let swapTimer = 0;
@@ -366,6 +374,9 @@ let visibilityLock = {};
 let isHDREnabled = true;
 let originalEnvMap = null; // for restoring later
 let isMuted = false;
+let mouseDownPos = { x: 0, y: 0 };
+let isDragging = false;
+
 
 
 function resetSceneState() {
@@ -385,8 +396,8 @@ console.log('🔄 Reset controls zoom limits');
   signsSwapEnabled = true;
   toggleEntityState('generator', true);
   toggleEntityState('robot', true);
-
-
+  renderer.setClearColor(0x17021F);
+  
   // 🔄 Restore model visibility unless locked
 Object.entries(modelRefs).forEach(([name, model]) => {
   if (name === 'engine_core') return; // 🚫 skip modifying engine_core
@@ -397,6 +408,13 @@ Object.entries(modelRefs).forEach(([name, model]) => {
   }
 });
 
+const shoeBtnGroup = document.getElementById('shoe-button-group');
+if (shoeBtnGroup) shoeBtnGroup.style.display = 'none';
+
+
+
+shoeToggleState = false;
+
 
   // 🔁 Restore hitbox positions
   Object.entries(hitboxOriginalPositions).forEach(([name, pos]) => {
@@ -404,7 +422,7 @@ Object.entries(modelRefs).forEach(([name, model]) => {
       const hitbox = model.getObjectByName?.(name);
       if (hitbox) {
         new TWEEN.Tween({ y: hitbox.position.y }, tweenGroup)
-          .to({ y: pos.y }, 1000)
+          .to({ y: pos.y }, 0)
           .easing(TWEEN.Easing.Quadratic.Out)
           .onUpdate(obj => hitbox.position.y = obj.y)
           .start();
@@ -458,24 +476,6 @@ Object.entries(modelRefs).forEach(([name, model]) => {
       menuModel.userData.mixer = mixer;
     }
 
-    // Ensure hitbox_menu exists and is visible
-    let hitboxMenu = menuModel.getObjectByName('hitbox_menu');
-    if (hitboxMenu) {
-      hitboxMenu.visible = true;
-      if (!menuModel.children.includes(hitboxMenu)) {
-        menuModel.add(hitboxMenu);
-      }
-    }
-
-    // 🔇 Hide interactive menu hitboxes
-    ['hitbox_app', 'hitbox_vr', 'hitbox_immersive', 'hitbox_reel'].forEach(name => {
-      const hitbox = menuModel.getObjectByName(name);
-      if (hitbox) {
-        hitbox.visible = false;
-        hitbox.userData.disabled = true;
-      }
-    });
-
 ['shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol', 'shoes_bg'].forEach(name => {
   const model = modelRefs[name];
   if (model) {
@@ -483,6 +483,7 @@ Object.entries(modelRefs).forEach(([name, model]) => {
     if (model.userData?.mixer) model.userData.mixer.stopAllAction();
   }
 });
+
 
 ['back'].forEach(name => {
   const model = modelRefs[name];
@@ -498,8 +499,6 @@ Object.entries(modelRefs).forEach(([name, model]) => {
       if (icon) icon.visible = false;
     });
 
-modelRefs['hitbox_shoes'].visible = false;
-
     console.log('🔁 Menu reset completed');
   }
 }
@@ -513,6 +512,7 @@ window.listModels = () => {
     console.log(`${i + 1}. ${name}`, model);
   });
 };
+
 
 
 function reverseAllCamClips(modelName = 'focus_cam', speed = 1) {
@@ -622,6 +622,27 @@ function playHoodClip(clipName, speed = 1) {
 
   console.log(`🎞️ Playing "${clipName}" @ ${speed}x speed`);
 }
+
+
+// ====== utility =======
+
+function scaleMeshBounce(modelName, meshName, targetScale = 1, duration = 800) {
+  const model = modelRefs[modelName];
+  const mesh = model?.getObjectByName(meshName);
+
+  if (!mesh) return console.warn(`❌ Mesh "${meshName}" not found in "${modelName}"`);
+
+  const from = { scale: 0 };
+
+  new TWEEN.Tween(from, tweenGroup)
+    .to({ scale: targetScale }, duration)
+    .easing(TWEEN.Easing.Elastic.Out)
+    .onUpdate(() => {
+      mesh.scale.set(from.scale, from.scale, from.scale);
+    })
+    .start();
+}
+
 
 function moveMultipleHitboxesY(hitboxNames = [], offsetY = 500, duration = 650) {
   hitboxNames.forEach(name => {
@@ -761,6 +782,33 @@ function launchHitboxLift4() {
   moveMultipleHitboxesY(targets, 500);
 }
 
+function launchHitboxLift5() {
+  const targets = [
+    'hitbox_sbody', 'hitbox_sbot', 'hitbox_splas', 'hitbox_scarb', 'hitbox_srubb', 'hitbox_ssol']
+  
+  moveMultipleHitboxesY(targets, 500);
+}
+
+function resetSelectedHitboxY(hitboxList, duration = 0) {
+  hitboxList.forEach(name => {
+    const originalPos = hitboxOriginalPositions[name];
+    if (!originalPos) return;
+
+    for (const model of Object.values(modelRefs)) {
+      const hitbox = model.getObjectByName?.(name);
+      if (hitbox) {
+        new TWEEN.Tween({ y: hitbox.position.y }, tweenGroup)
+          .to({ y: originalPos.y }, duration)
+          .easing(TWEEN.Easing.Quadratic.Out)
+          .onUpdate(obj => hitbox.position.y = obj.y)
+          .start();
+        break;
+      }
+    }
+  });
+}
+
+
 function focusOrbitOnModel(modelName) {
   const model = modelRefs[modelName];
   if (!model) {
@@ -888,7 +936,8 @@ const modelNames = [
   'background', 'logo', 'person',
   // shoes
    'shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol', 'shoes_bg1',
-    //cam
+   'hitbox_sbody', 'hitbox_sbot', 'hitbox_splas', 'hitbox_scarb', 'hitbox_srubb', 'hitbox_ssol',
+   //cam
   'cam_engine', 'cam_guide','cam_custom','cam_menu', 'cam_hood', 'cam_shoes',
   'cam_hoodmobile', 'cam_custommobile', 'cam_menumobile', 'cam_enginemobile',
     //hitbox
@@ -898,7 +947,7 @@ const modelNames = [
   'hitbox_block',
     //icon 
   'icon_shoes', 'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive',
-  'engine_corebroken','engine_core', 'engine_top', 'engine_cover', 'engine_fan', 'engine_base', 'engine_background'
+  'engine_corebroken','engine_core', 'engine_top', 'engine_cover', 'engine_fan', 'engine_base'
 ];
 
 function loadModel(name) {
@@ -914,6 +963,8 @@ function loadModel(name) {
    ].includes(name)) {
   model.visible = false; // ✅ Hide on load
 }
+
+
 
     // 💡 Dim HDRI lighting on all mesh materials
 model.traverse(child => {
@@ -962,14 +1013,7 @@ console.log(`🌍 World position of "${model.name}":`, worldPos.toArray());
     model.traverse((child) => {
   if (child.name) child.name = child.name.toLowerCase();
 
-  
-
   //====init hitbox hide====
-if (child.name && ['hitbox_app', 'hitbox_vr', 'hitbox_immersive', 'hitbox_reel', 'hitbox_shoes'].includes(child.name)) {
-  child.visible = false;
-  child.userData.disabled = true;
-}
-
 
   
   if (child.isMesh) {
@@ -1045,8 +1089,15 @@ function onModelLoaded() {
 }
 
 
-
 //====== FINISH LOADING=====
+
+
+const shoeMesh = modelRefs['icon_shoes']?.getObjectByName('shoes2_1'); // 👈 Replace with actual mesh name
+
+if (shoeMesh) {
+  shoeMesh.scale.set(0, 0, 0); // Start from 0
+}
+
 
 function triggerHitboxClick(name) {
   const model = Object.values(modelRefs).find(m => m.getObjectByName(name));
@@ -1060,6 +1111,56 @@ function triggerHitboxClick(name) {
 
 
 //==== Buttons =====
+
+
+
+let shoeToggleState = false; // false = sbody, true = splas
+
+
+document.getElementById('toggle-shoe-button')?.addEventListener('click', () => {
+  shoeToggleState = !shoeToggleState;
+
+  const btn = document.getElementById('toggle-shoe-button');
+  if (!btn) return;
+
+  if (shoeToggleState) {
+    // == splas version ==
+    playModelClip('shoes_bot', 'nla_sbotr', 1);
+    playModelClip('shoes_body', 'nla_sbodyr', 1);
+    playModelClip('shoes_plastic', 'nla_splasr', 1);
+    playModelClip('shoes_rubber', 'nla_srubberr', 1);
+    playModelClip('shoes_carbon', 'nla_scarbonr', 1);
+    playModelClip('shoes_sol', 'nla_ssolr', 1);
+    launchHitboxLift5();
+    controls.minAzimuthAngle = -Infinity;
+    controls.maxAzimuthAngle = Infinity;
+    
+    btn.src = '/textures/button_toggle2.png';
+  } else {
+    // == sbody version ==
+    playModelClip('shoes_bot', 'nla_sbot', 1);
+    playModelClip('shoes_body', 'nla_sbody', 1);
+    playModelClip('shoes_plastic', 'nla_splas', 1);
+    playModelClip('shoes_rubber', 'nla_srubber', 1);
+    playModelClip('shoes_carbon', 'nla_scarbon', 1);
+    playModelClip('shoes_sol', 'nla_ssol', 1);
+    controls.minAzimuthAngle = -Math.PI/-3; // 🔒 Limit to -180°
+    controls.maxAzimuthAngle = Math.PI/-1;  // 🔒 Limit to +180°
+      resetSelectedHitboxY([
+  'hitbox_sbody', 'hitbox_sbot', 'hitbox_splas',
+  'hitbox_scarb', 'hitbox_srubb', 'hitbox_ssol'
+], 3000);
+    btn.src = '/textures/button_toggle1.png';
+  }
+
+  console.log(`👟 Shoe mode: ${shoeToggleState ? 'SPLAS' : 'SBODY'}`);
+});
+
+document.getElementById('shop-shoe-button')?.addEventListener('click', () => {
+  window.open('https://sepatucompass.com/shop/sepatu-compas-velocity-grey-white', '_blank');
+});
+
+
 
 document.querySelectorAll('.menu-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -1303,8 +1404,7 @@ window.addEventListener('keydown', (e) => {
 
 document.getElementById('reset-btn')?.addEventListener('click', resetSceneState);
 
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
+
 let lastHoveredHitbox = null;
 
 const hitboxAnimationState = {
@@ -1703,7 +1803,7 @@ cursor.classList.add('pointer');
 }
 
 function onClick(e) {
-  if (inputLocked) return;
+  if (inputLocked || isDragging) return;
 
   raycaster.setFromCamera(mouse, camera);
   const intersects = raycaster.intersectObjects(scene.children, true);
@@ -1902,17 +2002,22 @@ playModelClip('back', 'nla_backall', 1);
    launchHitboxLift4();
       launchHitboxLift2();
       launchHitboxLift3();
+      launchHitboxLift5();
 moveModelToOffsetXYZ('focus_cam', { x: -2.756675672531128, y: 0.7532350611686707, z: 0 }, 1000);
 controls.enabled = false;
 backHoverLocked = true;
+setTimeout(() => scaleMeshBounce('icon_shoes', 'shoes2_1', 1.0, 1500), 600);
+setTimeout(() => scaleMeshBounce('icon_shoes', 'shoes2_2', 1.0, 1500), 600);
   setTimeout(() => modelRefs['icon_shoes'].visible = true, 600);
 return;
 }
 
 if (obj.name === 'hitbox_engine') {
+  renderer.setClearColor(0xe6dbc3);
    launchHitboxLift1();
    toggleEntityState('generator', false);
 toggleEntityState('robot', false);
+moveHitboxY('car', 500);
   moveHitboxY('hitbox_engine', 500);
   if (inputLocked) return; // ⛔ prevent spamming
   inputLocked = true;
@@ -1974,6 +2079,7 @@ if (obj.name === 'hitbox_engine3') {
 
   const DELAY_NS = 500;
   const DELAY_MS = 1500;
+  const DELAY_RS = 3000;
   setTimeout(() => {
 playModelClipOnce('engine_base', 'nla_enbaseback', 1);
 playModelClipOnce('engine_top', 'nla_entopback', 1);
@@ -1984,7 +2090,13 @@ playModelClipOnce('engine_cover', 'nla_encoverback', 1);
 setTimeout(() => {
   resetSceneState();
 }, DELAY_MS)}, DELAY_NS)}, DELAY_NS)}, DELAY_NS);
-  
+
+setTimeout(() => {
+document.getElementById('button_portfolio')?.classList.remove('disabled');
+      document.getElementById('button_show')?.classList.remove('disabled');
+      document.getElementById('button_contact')?.classList.remove('disabled');
+  }, DELAY_RS)
+
 return;
 }
 
@@ -2005,16 +2117,23 @@ if (obj.name === 'hitbox_speaker') {
 
 if (obj.name === 'hitbox_shoes') {
 
+const shoeBtnGroup = document.getElementById('shoe-button-group');
+if (shoeBtnGroup) shoeBtnGroup.style.display = 'flex';
+
+
+
+  renderer.setClearColor(0xe6dbc3);
+
   const shoeAnimations = {
     shoes_bot: 'nla_sbot',
     shoes_body: 'nla_sbody',
-    shoes_plastic: 'nla_splastic',
+    shoes_plastic: 'nla_splas',
     shoes_rubber: 'nla_srubber',
     shoes_carbon: 'nla_scarbon',
-    shoes_sol: 'nla_ssol',
-    shoes_bg: 'nono'
+    shoes_sol: 'nla_ssol'
   };
 
+//launchHitboxLift6();
 toggleEntityState('generator', false);
 toggleEntityState('robot', false);
 
@@ -2030,7 +2149,14 @@ toggleEntityState('robot', false);
     });
   }, 1000); 
 
+  resetSelectedHitboxY([
+  'hitbox_sbody', 'hitbox_sbot', 'hitbox_splas',
+  'hitbox_scarb', 'hitbox_srubb', 'hitbox_ssol'
+], 3000);
+
   moveHitboxY('hitbox_shoes', 500);
+   moveHitboxY('cart', 500);
+   moveHitboxY('shoes', 500);
   moveModelToOffsetXYZ('focus_cam', { x: -2.6, y: 0.68, z: 0.4 }, 200);
 
   controls.enabled = true;
@@ -2046,6 +2172,27 @@ toggleEntityState('robot', false);
 
   return;
 }
+
+if (obj.name === 'hitbox_splas') {
+  playModelClip('shoes_bot', 'nla_sbotr', 1);
+  playModelClip('shoes_body', 'nla_sbodyr', 1);
+  playModelClip('shoes_plastic', 'nla_splasr', 1);
+  playModelClip('shoes_rubber', 'nla_srubberr', 1);
+  playModelClip('shoes_carbon', 'nla_scarbonr', 1);
+  playModelClip('shoes_sol', 'nla_ssolr', 1);
+  return;
+}
+
+if (obj.name === 'hitbox_sbody') {
+  playModelClip('shoes_bot', 'nla_sbot', 1);
+  playModelClip('shoes_body', 'nla_sbody', 1);
+  playModelClip('shoes_plastic', 'nla_splas', 1);
+  playModelClip('shoes_rubber', 'nla_srubber', 1);
+  playModelClip('shoes_carbon', 'nla_scarbon', 1);
+  playModelClip('shoes_sol', 'nla_ssol', 1);
+  return;
+}
+// === end of click ===
 }
 
 function handleHitboxClick(obj) {
@@ -2137,9 +2284,17 @@ function handleHitboxClick(obj) {
           });
         }
       }, 1000);
+      setTimeout(() => scaleMeshBounce('icon_immersive', 'cone', 1.0, 1500), 912);
+      setTimeout(() => scaleMeshBounce('icon_immersive', 'cone_1', 1.0, 1500), 912);
+      setTimeout(() => scaleMeshBounce('icon_reel', 'cube041_1', 1.0, 1500), 912);
+      setTimeout(() => scaleMeshBounce('icon_reel', 'cube041', 1.0, 1500), 912);
+      setTimeout(() => scaleMeshBounce('icon_vr', 'cube040', 1.0, 1500), 912);
+      setTimeout(() => scaleMeshBounce('icon_vr', 'cube040_1', 1.0, 1500), 912);
+      setTimeout(() => scaleMeshBounce('icon_app', 'nla_iconapp', 1.0, 1500), 912);
+      setTimeout(() => scaleMeshBounce('icon_app', 'nla_iconapp_1', 1.0, 1500), 912);
       break;
 
- case 'hitbox_speaker':
+    case 'hitbox_speaker':
   toggleEntityState('speaker');
   break;
 
@@ -2154,6 +2309,7 @@ function handleHitboxClick(obj) {
       launchHitboxLift4();
       launchHitboxLift2();
       launchHitboxLift3();
+      launchHitboxLift5();
       moveModelToOffsetXYZ('focus_cam', {
         x: -2.756675672531128,
         y: 0.7532350611686707,
@@ -2161,6 +2317,8 @@ function handleHitboxClick(obj) {
       }, 1000);
       controls.enabled = false;
       backHoverLocked = true;
+      setTimeout(() => scaleMeshBounce('icon_shoes', 'shoes2_1', 1.0, 1500), 600);
+setTimeout(() => scaleMeshBounce('icon_shoes', 'shoes2_2', 1.0, 1500), 600);
       setTimeout(() => modelRefs['icon_shoes'].visible = true, 600);
       break;
 
@@ -2172,10 +2330,6 @@ function handleHitboxClick(obj) {
   const url = `https://wa.me/${phone}?text=${message}`;
   window.open(url, '_blank');
       break;
-
-    //case 'hitbox_shoes':
-     // toggleShoeBackground(true);
-     // break;
 
     default:
       console.log(`ℹ️ No special logic for ${obj.name}`);
@@ -2218,37 +2372,63 @@ document.querySelectorAll('.menu-btn').forEach(btn => {
 });
 
 
-
-
-
 /// ====click end======
  
+
+// === mouse logic ====
 window.addEventListener('mousemove', onMouseMove);
 
 let lastClickTime = 0;
+const CLICK_THROTTLE_MS = 250;
+const CLICK_MOVE_THRESHOLD = 5;
 
-function onClickWithThrottle(e) {
+const mouse = new THREE.Vector2();
+const raycaster = new THREE.Raycaster(); // if not already declared
+
+// === Track mouse/touch down
+window.addEventListener('mousedown', (e) => {
+  mouseDownPos = { x: e.clientX, y: e.clientY };
+  isDragging = false;
+});
+
+window.addEventListener('touchstart', (e) => {
+  const touch = e.touches[0];
+  mouseDownPos = { x: touch.clientX, y: touch.clientY };
+  isDragging = false;
+}, { passive: true });
+
+// === On release, trigger if not a drag + throttle
+function handleClickEvent(e) {
   const now = Date.now();
-  if (now - lastClickTime < 250) return;
+  if (now - lastClickTime < CLICK_THROTTLE_MS) return;
   lastClickTime = now;
 
-  // 💉 Always inject fresh mouse coords
-  if (e && e.clientX !== undefined && e.clientY !== undefined) {
-    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  const clientX = e.clientX ?? e.changedTouches?.[0]?.clientX;
+  const clientY = e.clientY ?? e.changedTouches?.[0]?.clientY;
+
+  const dx = clientX - mouseDownPos.x;
+  const dy = clientY - mouseDownPos.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  if (dist > CLICK_MOVE_THRESHOLD) {
+    isDragging = true;
+    return;
   }
 
-  onClick(e); // 🔁 propagate
+  // 💉 Inject raycast mouse coords
+  mouse.x = (clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+
+  onClick(e); // ✅ Your real click handler
 }
 
-window.addEventListener('mousedown', onClickWithThrottle);
-window.addEventListener('touchstart', (e) => {
-  e.preventDefault(); 
-  const touch = e.touches[0];
-  mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
-  onClickWithThrottle(e);
-});
+// === Listen for real click attempts
+window.addEventListener('mouseup', handleClickEvent);
+window.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  handleClickEvent(e);
+}, { passive: false });
+
 
 
 window.addEventListener('resize', () => {
