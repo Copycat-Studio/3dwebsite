@@ -1156,23 +1156,79 @@ document.getElementById('toggle-shoe-button')?.addEventListener('click', () => {
   console.log(`👟 Shoe mode: ${shoeToggleState ? 'SPLAS' : 'SBODY'}`);
 });
 
+document.getElementById('toggle-shoe-button')?.addEventListener('touchstart', () => {
+  shoeToggleState = !shoeToggleState;
+
+  const btn = document.getElementById('toggle-shoe-button');
+  if (!btn) return;
+
+  if (shoeToggleState) {
+    // SPLAS version
+    playModelClip('shoes_bot', 'nla_sbotr', 1);
+    playModelClip('shoes_body', 'nla_sbodyr', 1);
+    playModelClip('shoes_plastic', 'nla_splasr', 1);
+    playModelClip('shoes_rubber', 'nla_srubberr', 1);
+    playModelClip('shoes_carbon', 'nla_scarbonr', 1);
+    playModelClip('shoes_sol', 'nla_ssolr', 1);
+    launchHitboxLift5();
+    controls.minAzimuthAngle = -Infinity;
+    controls.maxAzimuthAngle = Infinity;
+
+    btn.src = '/textures/button_toggle2.png';
+  } else {
+    // SBODY version
+    playModelClip('shoes_bot', 'nla_sbot', 1);
+    playModelClip('shoes_body', 'nla_sbody', 1);
+    playModelClip('shoes_plastic', 'nla_splas', 1);
+    playModelClip('shoes_rubber', 'nla_srubber', 1);
+    playModelClip('shoes_carbon', 'nla_scarbon', 1);
+    playModelClip('shoes_sol', 'nla_ssol', 1);
+
+    controls.minAzimuthAngle = -Math.PI/-3;
+    controls.maxAzimuthAngle = Math.PI/-1;
+
+    resetSelectedHitboxY([
+      'hitbox_sbody', 'hitbox_sbot', 'hitbox_splas',
+      'hitbox_scarb', 'hitbox_srubb', 'hitbox_ssol'
+    ], 3000);
+
+    btn.src = '/textures/button_toggle1.png';
+  }
+
+  console.log(`👟 Shoe mode (TOUCH): ${shoeToggleState ? 'SPLAS' : 'SBODY'}`);
+}, { passive: true });
+
+
 document.getElementById('shop-shoe-button')?.addEventListener('click', () => {
   window.open('https://sepatucompass.com/shop/sepatu-compas-velocity-grey-white', '_blank');
 });
 
+document.getElementById('shop-shoe-button')?.addEventListener('touchstart', () => {
+  window.open('https://sepatucompass.com/shop/sepatu-compas-velocity-grey-white', '_blank');
+}, { passive: true });
 
+
+function disableMainButtons() {
+  ['button_portfolio', 'button_show', 'button_contact'].forEach(id => {
+    document.getElementById(id)?.classList.add('disabled');
+  });
+}
 
 document.querySelectorAll('.menu-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const hitboxName = btn.dataset.hitbox;
-    triggerHitboxClick(hitboxName);
-  });
+  const hitboxName = btn.dataset.hitbox;
 
-  btn.addEventListener('touchstart', () => {
-    const hitboxName = btn.dataset.hitbox;
-    if (hitboxName) triggerHitboxClick(hitboxName);
-  }, { passive: true });
+  const handler = () => {
+    if (['hitbox_menu', 'hitbox_guide', 'hitbox_back', 'hitbox_hood'].includes(hitboxName)) {
+      disableMainButtons();
+    }
+
+    triggerHitboxClick(hitboxName);
+  };
+
+  btn.addEventListener('click', handler);
+  btn.addEventListener('touchstart', handler, { passive: true });
 });
+
 
 const muteBtn = document.getElementById('button_speaker');
 
@@ -1188,6 +1244,7 @@ muteBtn?.addEventListener('click', () => {
   console.log(`🔊 Mute button toggled: ${isMuted ? 'MUTED' : 'UNMUTED'}`);
 });
 
+
 const helpBtn = document.getElementById('button_extra');
   const helpImgBottom = document.getElementById('help-img-bottom');
   const helpImgCenter = document.getElementById('help-img-center');
@@ -1200,6 +1257,22 @@ const helpBtn = document.getElementById('button_extra');
     helpImgCenter.style.display = helpVisible ? 'block' : 'none';
      });
 
+muteBtn?.addEventListener('touchstart', () => {
+  isMuted = !isMuted;
+  muteBtn.src = isMuted 
+    ? '/textures/button_mute2.png' 
+    : '/textures/button_mute1.png';
+
+  triggerHitboxClick('hitbox_speaker');
+}, { passive: true });
+
+helpBtn.addEventListener('touchstart', () => {
+  helpVisible = !helpVisible;
+  helpImgBottom.style.display = helpVisible ? 'block' : 'none';
+  helpImgCenter.style.display = helpVisible ? 'block' : 'none';
+}, { passive: true });
+
+     
 function createOutline(model, color = 0xffff00, scale = 1.1) {
   const outlineGroup = new THREE.Group();
   model.traverse((child) => {
@@ -1408,6 +1481,9 @@ window.addEventListener('keydown', (e) => {
 });
 
 document.getElementById('reset-btn')?.addEventListener('click', resetSceneState);
+document.getElementById('button_back')?.addEventListener('click', resetSceneState);
+document.getElementById('button_back')?.addEventListener('touchstart', resetSceneState, { passive: true });
+
 
 
 let lastHoveredHitbox = null;
@@ -1828,6 +1904,8 @@ if (disableBtnOn.includes(obj.name)) {
   document.getElementById('button_show')?.classList.add('disabled');
    document.getElementById('button_contact')?.classList.add('disabled');
 }
+
+
 
   }
 
