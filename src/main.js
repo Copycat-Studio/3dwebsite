@@ -265,11 +265,11 @@ const captionMap = {
   'hitbox_speaker' : 'Music On/Off',
   'hitbox_shoes' : 'See Detail',
   'hitbox_sbody' : 'UPPER<br><br>Stylish shoes, with combination of suede and canvas<br>have details on leather and so on<br><br>Model 3D Scanned from Compass® Velocity®',
-  'hitbox_sbot' : 'OUTSOLE<br><br>loren ipsum heuheuuy<br><br>Model 3D Scanned from Compass® Velocity®', 
+  'hitbox_sbot' : 'OUTSOLE<br><br>With good grip will boost your power-deliver<br><br>Model 3D Scanned from Compass® Velocity®', 
   'hitbox_splas' : 'HEEL COUNTER<br><br>loren ipsum heuheuuy<br><br>Model 3D Scanned from Compass® Velocity®',
-  'hitbox_scarb' : 'CARBON SHANK<br><br>loren ipsum heuheuuy<br><br>Model 3D Scanned from Compass® Velocity®', 
-  'hitbox_srubb' : 'RUBBER UNIT<br><br>loren ipsum heuheuuy<br><br>Model 3D Scanned from Compass® Velocity®',
-  'hitbox_ssol' : 'MIDSOLE<br><br>loren ipsum heuheuuy<br><br>Model 3D Scanned from Compass® Velocity®'
+  'hitbox_scarb' : 'CARBON SHANK<br><br>With the latest technology, will help to boost your power<br><br>Model 3D Scanned from Compass® Velocity®', 
+  'hitbox_srubb' : 'RUBBER UNIT<br><br>Give better comfort on your daily activities<br><br>Model 3D Scanned from Compass® Velocity®',
+  'hitbox_ssol' : 'MIDSOLE<br><br>With soft compound will give you best comfort on this shoes<br><br>Model 3D Scanned from Compass® Velocity®'
 };
 
 
@@ -1167,6 +1167,11 @@ document.querySelectorAll('.menu-btn').forEach(btn => {
     const hitboxName = btn.dataset.hitbox;
     triggerHitboxClick(hitboxName);
   });
+
+  btn.addEventListener('touchstart', () => {
+    const hitboxName = btn.dataset.hitbox;
+    if (hitboxName) triggerHitboxClick(hitboxName);
+  }, { passive: true });
 });
 
 const muteBtn = document.getElementById('button_speaker');
