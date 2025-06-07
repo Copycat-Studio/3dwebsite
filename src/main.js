@@ -48,8 +48,9 @@ window.addEventListener('mousemove', (e) => {
 });
 
 
-const DEBUG = true; // ✅ flip to false to silence logs
-window.DEBUG = true; // 👈 make it global
+// === debug switch ===
+const DEBUG = false; 
+window.DEBUG = true; 
 const hitboxOriginalPositions = {};
 
 if (!DEBUG) {
@@ -255,6 +256,7 @@ const captionMap = {
   'hitbox_app': 'COMING<br>SOON',
   'hitbox_reel': 'Showreel',
   'hitbox_vr': 'COMING<br>SOON',
+  'hitbox_ig': '@copycatstudio Instagram',
   'hitbox_immersive': 'CGI by Curio',
   'hitbox_engine' : 'Repair Me!',
   'hitbox_engine1' : 'Open The Cover!',
@@ -494,7 +496,7 @@ shoeToggleState = false;
 
 
     // 🕹️ Hide menu icons
-    ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'shoes', 'icon_shoes'].forEach(iconName => {
+    ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'shoes', 'icon_shoes', 'icon_ig'].forEach(iconName => {
       const icon = modelRefs[iconName];
       if (icon) icon.visible = false;
     });
@@ -761,7 +763,7 @@ function launchHitboxLift1() {
 
 function launchHitboxLift2() {
   const targets = [
-    'hitbox_app', 'hitbox_vr', 'hitbox_reel', 'hitbox_immersive'
+    'hitbox_app', 'hitbox_vr', 'hitbox_reel', 'hitbox_immersive', 'hitbox_ig'
   ];
   
   moveMultipleHitboxesY(targets, 500); 
@@ -932,7 +934,7 @@ function logFocusPosition() {
 // === Model List ===
 const modelNames = [
   'car', 'cart', 'lamp', 'hood', 'generator', 'table', 'sky', 'speaker',
-  'ground', 'robot', 'robot1', 'robot2', 'sign1', 'sign2', 'menu', 'back', 'guide',
+  'ground', 'robot', 'sign1', 'sign2', 'menu', 'back', 'guide',
   'background', 'logo', 'person',
   // shoes
    'shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol', 'shoes_bg1',
@@ -944,9 +946,9 @@ const modelNames = [
   'hitbox_menu', 'hitbox_table', 'hitbox_hood', 'hitbox_back', 'hitbox_cable', 'hitbox_shoes',
   'hitbox_app', 'focus_cam', 'hitbox_vr', 'hitbox_immersive', 'hitbox_guide', 'hitbox_speaker',
   'hitbox_reel', 'hitbox_engine', 'hitbox_engine1', 'hitbox_engine2', 'hitbox_engine3',
-  'hitbox_block',
+  'hitbox_block', 'hitbox_ig',
     //icon 
-  'icon_shoes', 'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive',
+  'icon_shoes', 'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive', 'icon_ig',
   'engine_corebroken','engine_core', 'engine_top', 'engine_cover', 'engine_fan', 'engine_base'
 ];
 
@@ -975,7 +977,7 @@ model.traverse(child => {
 });
     
     // 🔒 Hide icon_* models on load
-if (['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'icon_shoes'].includes(model.name)) {
+if (['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'icon_shoes', 'icon_ig'].includes(model.name)) {
   model.visible = false;
   console.log(`🙈 Hiding icon model: ${model.name}`);
 }
@@ -993,22 +995,30 @@ console.log(`🌍 World position of "${model.name}":`, worldPos.toArray());
 
         // ==== loop list=====
     if ([
-      'generator', 'lamp', 'guide', 'person', 'menu', 'robot', 'icon_shoes',
-     'robot1', 'robot2', 'engine_corebroken', 'engine_core', 'speaker'
-    ].includes(name.toLowerCase()) && gltf.animations?.length > 0) {
+  'generator', 'lamp', 'guide', 'person', 'menu', 'robot', 'icon_shoes',
+  'robot1', 'robot2', 'engine_corebroken', 'engine_core', 'speaker'
+].includes(name.toLowerCase()) && gltf.animations?.length > 0) {
   const mixer = new THREE.AnimationMixer(model);
   const loopAction = mixer.clipAction(gltf.animations[0]);
 
-  
-  const speed = animationSpeeds[name.toLowerCase()] || 1.0; // fallback = 1.0x
-  loopAction.setLoop(THREE.LoopPingPong);
-  loopAction.timeScale = speed; // 🎚️ Apply model-specific speed
+  const speed = animationSpeeds[name.toLowerCase()] || 1.0;
+
+  if (name.toLowerCase() === 'robot') {
+    // 🧍 Use normal LoopRepeat for robot
+    loopAction.setLoop(THREE.LoopRepeat);
+  } else {
+    // 🔁 Use ping-pong for everyone else
+    loopAction.setLoop(THREE.LoopPingPong);
+  }
+
+  loopAction.timeScale = speed;
   loopAction.play();
 
   model.userData.mixer = mixer;
 
-  console.log(`🔁 Playing "${name}" loop @ ${speed}x`);
+  console.log(`🔁 Playing "${name}" loop @ ${speed}x (${name.toLowerCase() === 'robot' ? 'REPEAT' : 'PINGPONG'})`);
 }
+
 
     model.traverse((child) => {
   if (child.name) child.name = child.name.toLowerCase();
@@ -1417,9 +1427,9 @@ const proximitySounds = [
     -0.70647, 0.04338, 2.0774
     ),
     sound: 'gensound',
-    radius: 5,
+    radius: 8,
     minDist: 3,
-    maxVol: .4,
+    maxVol: .6,
     triggered: true,
   name: 'generator',
   enabled: true  
@@ -1429,7 +1439,7 @@ const proximitySounds = [
     -1.54716, 0.71864, 0.380925
     ),
     sound: 'robotsfx',
-    radius: 5,
+    radius: 6,
     minDist: 2,
     maxVol: 1,
     triggered: true,
@@ -1451,7 +1461,7 @@ const proximitySounds = [
     2.02544, 0.27704, -0.31851
     ),
     sound: 'core',
-    radius: 2.5,
+    radius: 3.5,
     minDist: 0,
     maxVol: .5,
     triggered: true
@@ -1524,15 +1534,22 @@ function playLoopingAnimation(modelName) {
   model.userData.mixer = mixer;
 
   const action = mixer.clipAction(clips[0]);
-  action.setLoop(THREE.LoopPingPong);
-  action.timeScale = speed; // ✅ Use custom speed
+
+  if (modelName.toLowerCase() === 'robot') {
+    action.setLoop(THREE.LoopRepeat); // 🔁 normal repeat
+  } else {
+    action.setLoop(THREE.LoopPingPong); // 🔁 pingpong for others
+  }
+
+  action.timeScale = speed;
   action.clampWhenFinished = false;
   action.reset().play();
 
   model.userData.action = action;
 
-  console.log(`▶️ Playing ${modelName} @ ${speed}x`);
+  console.log(`▶️ Playing ${modelName} @ ${speed}x (${modelName === 'robot' ? 'REPEAT' : 'PINGPONG'})`);
 }
+
 
 function stopLoopingAnimation(modelName) {
   const action = modelRefs[modelName]?.userData?.action;
@@ -1771,7 +1788,7 @@ if (newHoveredHitbox !== lastHoveredHitbox) {
   playModelClip('table', 'nla_tableback', 1),
   playModelClip('tablefont', 'nla_tablerear', 1)
 ]);
-playSFX('table');
+setTimeout(() => playSFX('table'),400);
     }
 
     // 🛑 Stop icon animations
@@ -1792,9 +1809,13 @@ playSFX('table');
       case 'hitbox_app':
         stopAnim('icon_app');
         break;
+      case 'hitbox_ig':
+        stopAnim('icon_ig');
+        break;
       case 'hitbox_immersive':
         stopAnim('icon_immersive');
-                break;
+        break;
+                
     }
   }
 
@@ -1816,7 +1837,7 @@ playSFX('table');
   playModelClip('table', 'nla_table', 1),
   playModelClip('tablefont', 'nla_tablefront', 1)
 ]);
-playSFX('table');
+setTimeout(() => playSFX('table'),400);
     }
 
 // 🔁 Play icon animations with custom speed
@@ -1834,14 +1855,21 @@ const playAnim = (modelName, clipNames, playSpeed = 1) => {
     }
 
     const action = mixer.clipAction(clip);
-    action.setLoop(THREE.LoopPingPong);
+
+    if (modelName.toLowerCase() === 'robot') {
+      action.setLoop(THREE.LoopRepeat);
+    } else {
+      action.setLoop(THREE.LoopPingPong);
+    }
+
     action.clampWhenFinished = false;
-    action.timeScale = playSpeed; // ⚡ Speed control here
+    action.timeScale = playSpeed;
     action.reset().play();
 
-    console.log(`🔁 Playing "${clipName}" on "${modelName}" @ speed: ${playSpeed}x`);
+    console.log(`🔁 Playing "${clipName}" on "${modelName}" @ ${playSpeed}x (${modelName === 'robot' ? 'REPEAT' : 'PINGPONG'})`);
   });
 };
+
 
 
   switch (newHoveredHitbox) {
@@ -1856,6 +1884,9 @@ const playAnim = (modelName, clipNames, playSpeed = 1) => {
       break;
   case 'hitbox_immersive':
     playAnim('icon_immersive', 'nla_iconim', 0.5);
+     break;
+  case 'hitbox_ig':
+    playAnim('icon_ig', 'nla_iconig', 0.5);
      break;
 }
 
@@ -1989,25 +2020,25 @@ if (obj.name === 'hitbox_menu') {
   
   const DELAY_MS = 1000;
   setTimeout(() => {
-    ['hitbox_app', 'hitbox_vr', 'hitbox_immersive', 'hitbox_reel'].forEach(name => {
-      const hitbox = modelRefs['menu']?.getObjectByName(name);
-      if (hitbox) {
-        hitbox.visible = true;
-        hitbox.userData.disabled = false;
-      }
-    });
 
     const menuModel = modelRefs['menu'];
     if (menuModel) {
       menuModel.visible = false;
 
-      ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel'].forEach(iconName => {
+      ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'icon_ig'].forEach(iconName => {
         const icon = modelRefs[iconName];
         if (icon) icon.visible = true;
       });
     }
   }, DELAY_MS);
 }
+
+if (obj.name === 'hitbox_ig') {
+  console.log('🔗 hitbox_ig clicked');
+  window.open('https://www.instagram.com/copycatstudio/', '_blank');
+  return;
+}
+
 
 if (obj.name === 'hitbox_reel') {
   console.log('🔗 hitbox_reel clicked → Opening YouTube...');
@@ -2350,18 +2381,10 @@ function handleHitboxClick(obj) {
       inputLocked = true;
       setTimeout(() => inputLocked = false, 700);
       setTimeout(() => {
-        ['hitbox_app', 'hitbox_vr', 'hitbox_immersive', 'hitbox_reel'].forEach(name => {
-          const hitbox = modelRefs['menu']?.getObjectByName(name);
-          if (hitbox) {
-            hitbox.visible = true;
-            hitbox.userData.disabled = false;
-          }
-        });
-
-        const menuModel = modelRefs['menu'];
+      const menuModel = modelRefs['menu'];
         if (menuModel) {
           menuModel.visible = false;
-          ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel'].forEach(iconName => {
+          ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'icon_ig'].forEach(iconName => {
             const icon = modelRefs[iconName];
             if (icon) icon.visible = true;
           });
@@ -2375,6 +2398,8 @@ function handleHitboxClick(obj) {
       setTimeout(() => scaleMeshBounce('icon_vr', 'cube040_1', 1.0, 1500), 912);
       setTimeout(() => scaleMeshBounce('icon_app', 'nla_iconapp', 1.0, 1500), 912);
       setTimeout(() => scaleMeshBounce('icon_app', 'nla_iconapp_1', 1.0, 1500), 912);
+      setTimeout(() => scaleMeshBounce('icon_ig', 'iconig', 1.0, 1500), 912);
+      setTimeout(() => scaleMeshBounce('icon_ig', 'iconig_1', 1.0, 1500), 912);
       break;
 
     case 'hitbox_speaker':
@@ -2589,8 +2614,8 @@ function animate() {
 
   // animation list
 
-['generator', 'lamp', 'back', 'table', 'tablefont', 'menu', 'focus_cam', 'robot', 'robot1', 'robot2',
-  'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive', 'person', 'guide', 'speaker', 'shoes', 'icon_shoes',
+['generator', 'lamp', 'back', 'table', 'tablefont', 'menu', 'focus_cam', 'robot',
+  'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive', 'icon_ig', 'person', 'guide', 'speaker', 'shoes', 'icon_shoes',
   'engine_corebroken', 'engine_core', 'engine_top', 'engine_cover', 'engine_fan', 'engine_base',
   'shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol'
 ].forEach(name => {
