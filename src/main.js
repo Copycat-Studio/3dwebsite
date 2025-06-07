@@ -49,7 +49,7 @@ window.addEventListener('mousemove', (e) => {
 
 
 // === debug switch ===
-const DEBUG = false; 
+const DEBUG = true; 
 window.DEBUG = true; 
 const hitboxOriginalPositions = {};
 
