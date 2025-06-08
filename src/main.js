@@ -24,11 +24,11 @@ const animationSpeeds = {
   lamp: 0.3,
   menu: 0.5,
   robot: 0.4,
-  robot1: 0.4,
-  robot2: 0.4,
   engine_corebroken: 0.4,
   speaker: 2.1,
-  icon_shoes: .3
+  icon_shoes: .3,
+  cs_app: .4,
+  cs_vr: .4
 
 };
 
@@ -49,7 +49,7 @@ window.addEventListener('mousemove', (e) => {
 
 
 // === debug switch ===
-const DEBUG = true; 
+const DEBUG = false; 
 window.DEBUG = true; 
 const hitboxOriginalPositions = {};
 
@@ -355,6 +355,19 @@ const hitboxMap = {
   minAzimuthAngle: -Math.PI / 1, 
   maxAzimuthAngle: Math.PI / 1
   }
+  },
+   'hitbox_table': {
+    cam: {
+    desktop: 'cam_table',
+    mobile: 'cam_table'
+    },
+    model: 'table',
+  controls: {
+    minDistance: 1,
+    maxDistance: 10,
+  minAzimuthAngle: -Math.PI / 1, 
+  maxAzimuthAngle: Math.PI / 1
+  }
   }
 };
 
@@ -496,7 +509,7 @@ shoeToggleState = false;
 
 
     // 🕹️ Hide menu icons
-    ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'shoes', 'icon_shoes', 'icon_ig'].forEach(iconName => {
+    ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'shoes', 'icon_shoes', 'icon_ig', 'cs_app', 'cs_vr', 'icon_wa', 'icon_email'].forEach(iconName => {
       const icon = modelRefs[iconName];
       if (icon) icon.visible = false;
     });
@@ -763,7 +776,7 @@ function launchHitboxLift1() {
 
 function launchHitboxLift2() {
   const targets = [
-    'hitbox_app', 'hitbox_vr', 'hitbox_reel', 'hitbox_immersive', 'hitbox_ig'
+    'hitbox_app', 'hitbox_vr', 'hitbox_reel', 'hitbox_immersive', 'hitbox_ig', 'hitbox_immersive'
   ];
   
   moveMultipleHitboxesY(targets, 500); 
@@ -941,15 +954,16 @@ const modelNames = [
    'hitbox_sbody', 'hitbox_sbot', 'hitbox_splas', 'hitbox_scarb', 'hitbox_srubb', 'hitbox_ssol',
    //cam
   'cam_engine', 'cam_guide','cam_custom','cam_menu', 'cam_hood', 'cam_shoes',
-  'cam_hoodmobile', 'cam_custommobile', 'cam_menumobile', 'cam_enginemobile',
+  'cam_hoodmobile', 'cam_custommobile', 'cam_menumobile', 'cam_enginemobile', 'cam_table',
     //hitbox
   'hitbox_menu', 'hitbox_table', 'hitbox_hood', 'hitbox_back', 'hitbox_cable', 'hitbox_shoes',
   'hitbox_app', 'focus_cam', 'hitbox_vr', 'hitbox_immersive', 'hitbox_guide', 'hitbox_speaker',
   'hitbox_reel', 'hitbox_engine', 'hitbox_engine1', 'hitbox_engine2', 'hitbox_engine3',
-  'hitbox_block', 'hitbox_ig',
+  'hitbox_block', 'hitbox_ig', 'hitbox_wa', 'hitbox_email',
     //icon 
   'icon_shoes', 'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive', 'icon_ig',
-  'engine_corebroken','engine_core', 'engine_top', 'engine_cover', 'engine_fan', 'engine_base'
+  'engine_corebroken','engine_core', 'engine_top', 'engine_cover', 'engine_fan', 'engine_base',
+  'cs_vr', 'cs_app', 'icon_wa', 'icon_email'
 ];
 
 function loadModel(name) {
@@ -966,6 +980,9 @@ function loadModel(name) {
   model.visible = false; // ✅ Hide on load
 }
 
+if (['icon_wa', 'icon_email'].includes(name.toLowerCase())) {
+  model.visible = false;
+}
 
 
     // 💡 Dim HDRI lighting on all mesh materials
@@ -977,7 +994,7 @@ model.traverse(child => {
 });
     
     // 🔒 Hide icon_* models on load
-if (['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'icon_shoes', 'icon_ig'].includes(model.name)) {
+if (['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'icon_shoes', 'icon_ig', 'cs_app', 'cs_vr', 'icon_wa', 'icon_email'].includes(model.name)) {
   model.visible = false;
   console.log(`🙈 Hiding icon model: ${model.name}`);
 }
@@ -996,7 +1013,7 @@ console.log(`🌍 World position of "${model.name}":`, worldPos.toArray());
         // ==== loop list=====
     if ([
   'generator', 'lamp', 'guide', 'person', 'menu', 'robot', 'icon_shoes',
-  'robot1', 'robot2', 'engine_corebroken', 'engine_core', 'speaker'
+  'robot1', 'robot2', 'engine_corebroken', 'engine_core', 'speaker', 'cs_app', 'cs_vr'
 ].includes(name.toLowerCase()) && gltf.animations?.length > 0) {
   const mixer = new THREE.AnimationMixer(model);
   const loopAction = mixer.clipAction(gltf.animations[0]);
@@ -1926,7 +1943,7 @@ function onClick(e) {
 
   if (obj.name?.startsWith('hitbox_')) {
     handleHitboxClick(obj);
-    const disableBtnOn = ['hitbox_menu', 'hitbox_guide', 'hitbox_back', 'hitbox_hood'];
+    const disableBtnOn = ['hitbox_menu', 'hitbox_guide', 'hitbox_back', 'hitbox_hood', 'hitbox_table'];
 if (disableBtnOn.includes(obj.name)) {
   console.log(`🔒 Disabling buttons due to ${obj.name} click`);
 
@@ -2025,7 +2042,7 @@ if (obj.name === 'hitbox_menu') {
     if (menuModel) {
       menuModel.visible = false;
 
-      ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'icon_ig'].forEach(iconName => {
+      ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'icon_ig', 'cs_app', 'cs_vr'].forEach(iconName => {
         const icon = modelRefs[iconName];
         if (icon) icon.visible = true;
       });
@@ -2103,6 +2120,7 @@ if (obj.name === 'hitbox_guide') {
 moveModelToOffsetXYZ('focus_cam', { x: 1.25, y: 0.6, z: -1.7928889989852905 }, 1000);
    controls.enabled = false;
 }
+
 
 if (obj.name === 'hitbox_back') {
   if (inputLocked) return; // ⛔ prevent spamming
@@ -2215,14 +2233,47 @@ return;
 }
 
 if (obj.name === 'hitbox_table') {
-   stopAutoOutlinePulse();
-  console.log('💬 hitbox_table clicked → Opening WhatsApp...');
-  const phone = '6283820299086'; // use your full international number
-  const message = encodeURIComponent('Hi! I want to get a reservation — let’s talk.');
-  const url = `https://wa.me/${phone}?text=${message}`;
-  window.open(url, '_blank');
+  stopAutoOutlinePulse();
+   launchHitboxLift1();
+      launchHitboxLift2();
+      launchHitboxLift3();
+      launchHitboxLift4();
+      launchHitboxLift5();
+      stopAutoOutlinePulse();
+moveModelToOffsetXYZ('focus_cam', { x: 
+-0.875, y: 0.1151, z: -2.214 }, 1000);
+   controls.enabled = false;
+
+    playModelClip('table', 'nla_table', 1);
+  playSFX('table');
+
+  const waIcon = modelRefs['icon_wa'];
+const emailIcon = modelRefs['icon_email'];
+
+if (waIcon) waIcon.visible = true;
+if (emailIcon) emailIcon.visible = true;
+
+
+   return;
+}
+
+if (obj.name === 'hitbox_wa') {
+  window.open('https://wa.me/6281234567890', '_blank'); // ← put your actual WA number
   return;
 }
+
+
+if (obj.name === 'hitbox_email') {
+  const userEmail = prompt('Enter your email to contact us:');
+  if (userEmail) {
+    const subject = encodeURIComponent('Contact from 3D Website');
+    const body = encodeURIComponent(`Hi Copycat Studio, I am contacting you from your 3D website.\n\nMy email: ${userEmail}`);
+    const mailtoLink = `mailto:mailbox@copycat-studio.com?subject=${subject}&body=${body}`;
+    window.open(mailtoLink, '_blank');
+  }
+  return;
+}
+
 
 if (obj.name === 'hitbox_speaker') {
   toggleEntityState('speaker');
@@ -2384,7 +2435,7 @@ function handleHitboxClick(obj) {
       const menuModel = modelRefs['menu'];
         if (menuModel) {
           menuModel.visible = false;
-          ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'icon_ig'].forEach(iconName => {
+          ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'icon_ig', 'cs_app', 'cs_vr'].forEach(iconName => {
             const icon = modelRefs[iconName];
             if (icon) icon.visible = true;
           });
@@ -2432,11 +2483,26 @@ setTimeout(() => scaleMeshBounce('icon_shoes', 'shoes2_2', 1.0, 1500), 600);
 
     case 'hitbox_table':
      stopAutoOutlinePulse();
-  console.log('💬 hitbox_table clicked → Opening WhatsApp...');
-  const phone = '6283820299086'; // use your full international number
-  const message = encodeURIComponent('Hi! I want to get a reservation — let’s talk.');
-  const url = `https://wa.me/${phone}?text=${message}`;
-  window.open(url, '_blank');
+   launchHitboxLift1();
+      launchHitboxLift2();
+      launchHitboxLift3();
+      launchHitboxLift4();
+      launchHitboxLift5();
+      stopAutoOutlinePulse();
+moveModelToOffsetXYZ('focus_cam', { x: 
+-0.875, y: 0.1151, z: -2.214 }, 1000);
+   controls.enabled = false;
+   
+
+   playModelClip('table', 'nla_table', 1);
+  playSFX('table');
+
+  const waIcon = modelRefs['icon_wa'];
+const emailIcon = modelRefs['icon_email'];
+
+if (waIcon) waIcon.visible = true;
+if (emailIcon) emailIcon.visible = true;
+
       break;
 
     default:
@@ -2467,7 +2533,7 @@ document.querySelectorAll('.menu-btn').forEach(btn => {
         handleHitboxClick(hitbox);
 
         // ✅ If menu or back was clicked, disable both
-        if (hitboxName === 'hitbox_menu' || hitboxName === 'hitbox_back') {
+        if (hitboxName === 'hitbox_menu' || hitboxName === 'hitbox_back' || hitboxName === 'hitbox_table') {
           document.getElementById('button_portfolio')?.classList.add('disabled');
           document.getElementById('button_show')?.classList.add('disabled');
            document.getElementById('button_contact')?.classList.add('disabled');
@@ -2617,7 +2683,8 @@ function animate() {
 ['generator', 'lamp', 'back', 'table', 'tablefont', 'menu', 'focus_cam', 'robot',
   'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive', 'icon_ig', 'person', 'guide', 'speaker', 'shoes', 'icon_shoes',
   'engine_corebroken', 'engine_core', 'engine_top', 'engine_cover', 'engine_fan', 'engine_base',
-  'shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol'
+  'shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol',
+  'cs_app', 'cs_vr'
 ].forEach(name => {
   const model = modelRefs[name];
   const mixer = model?.userData?.mixer;
