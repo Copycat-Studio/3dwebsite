@@ -355,19 +355,6 @@ const hitboxMap = {
   minAzimuthAngle: -Math.PI / 1, 
   maxAzimuthAngle: Math.PI / 1
   }
-  },
-   'hitbox_table': {
-    cam: {
-    desktop: 'cam_table',
-    mobile: 'cam_table'
-    },
-    model: 'table',
-  controls: {
-    minDistance: 1,
-    maxDistance: 10,
-  minAzimuthAngle: -Math.PI / 1, 
-  maxAzimuthAngle: Math.PI / 1
-  }
   }
 };
 
@@ -954,16 +941,16 @@ const modelNames = [
    'hitbox_sbody', 'hitbox_sbot', 'hitbox_splas', 'hitbox_scarb', 'hitbox_srubb', 'hitbox_ssol',
    //cam
   'cam_engine', 'cam_guide','cam_custom','cam_menu', 'cam_hood', 'cam_shoes',
-  'cam_hoodmobile', 'cam_custommobile', 'cam_menumobile', 'cam_enginemobile', 'cam_table',
+  'cam_hoodmobile', 'cam_custommobile', 'cam_menumobile', 'cam_enginemobile',
     //hitbox
   'hitbox_menu', 'hitbox_table', 'hitbox_hood', 'hitbox_back', 'hitbox_cable', 'hitbox_shoes',
   'hitbox_app', 'focus_cam', 'hitbox_vr', 'hitbox_immersive', 'hitbox_guide', 'hitbox_speaker',
   'hitbox_reel', 'hitbox_engine', 'hitbox_engine1', 'hitbox_engine2', 'hitbox_engine3',
-  'hitbox_block', 'hitbox_ig', 'hitbox_wa', 'hitbox_email',
+  'hitbox_block', 'hitbox_ig', 
     //icon 
   'icon_shoes', 'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive', 'icon_ig',
   'engine_corebroken','engine_core', 'engine_top', 'engine_cover', 'engine_fan', 'engine_base',
-  'cs_vr', 'cs_app', 'icon_wa', 'icon_email'
+  'cs_vr', 'cs_app'
 ];
 
 function loadModel(name) {
@@ -1139,6 +1126,45 @@ function triggerHitboxClick(name) {
 
 //==== Buttons =====
 
+document.getElementById('email-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const data = {
+    name: form.name.value,
+    email: form.email.value,
+    phone: form.phone.value,
+    note: form.note.value
+  };
+
+  try {
+    await fetch('https://script.google.com/macros/s/AKfycbyS7C0-_TlnURsSsjda4JrxEF3WT42RG2kfyOVSUeTLEFy3kK4RBU885xBBQU-SJRKD/exec', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+
+    alert('📬 Message sent!');
+    form.reset();
+    document.getElementById('email-form-overlay').style.display = 'none';
+    
+const canvas = document.querySelector('canvas');
+if (canvas) canvas.style.pointerEvents = 'auto';
+  } catch (err) {
+    alert('❌ Failed to send. Please try again.');
+  }
+});
+
+document.getElementById('form-cancel')?.addEventListener('click', () => {
+  document.getElementById('email-form-overlay').style.display = 'none';
+
+  const canvas = document.querySelector('canvas');
+  if (canvas) canvas.style.pointerEvents = 'auto';
+});
+document.getElementById('form-cancel')?.addEventListener('touchstart', () => {
+  document.getElementById('email-form-overlay').style.display = 'none';
+
+  const canvas = document.querySelector('canvas');
+  if (canvas) canvas.style.pointerEvents = 'auto';
+});
 
 
 let shoeToggleState = false; // false = sbody, true = splas
@@ -1161,6 +1187,7 @@ document.getElementById('toggle-shoe-button')?.addEventListener('click', () => {
     launchHitboxLift5();
     controls.minAzimuthAngle = -Infinity;
     controls.maxAzimuthAngle = Infinity;
+    moveModelToOffsetXYZ('focus_cam', { x: -2.615, y: 0.65, z: 0.46 }, 3000);
     
     btn.src = '/textures/button_toggle2.png';
   } else {
@@ -1177,6 +1204,7 @@ document.getElementById('toggle-shoe-button')?.addEventListener('click', () => {
   'hitbox_sbody', 'hitbox_sbot', 'hitbox_splas',
   'hitbox_scarb', 'hitbox_srubb', 'hitbox_ssol'
 ], 3000);
+    moveModelToOffsetXYZ('focus_cam', { x: -2.62, y: 0.68, z: 0.35 }, 3000);
     btn.src = '/textures/button_toggle1.png';
   }
 
@@ -1943,7 +1971,7 @@ function onClick(e) {
 
   if (obj.name?.startsWith('hitbox_')) {
     handleHitboxClick(obj);
-    const disableBtnOn = ['hitbox_menu', 'hitbox_guide', 'hitbox_back', 'hitbox_hood', 'hitbox_table'];
+    const disableBtnOn = ['hitbox_menu', 'hitbox_guide', 'hitbox_back', 'hitbox_hood'];
 if (disableBtnOn.includes(obj.name)) {
   console.log(`🔒 Disabling buttons due to ${obj.name} click`);
 
@@ -2234,45 +2262,13 @@ return;
 
 if (obj.name === 'hitbox_table') {
   stopAutoOutlinePulse();
-   launchHitboxLift1();
-      launchHitboxLift2();
-      launchHitboxLift3();
-      launchHitboxLift4();
-      launchHitboxLift5();
-      stopAutoOutlinePulse();
-moveModelToOffsetXYZ('focus_cam', { x: 
--0.875, y: 0.1151, z: -2.214 }, 1000);
-   controls.enabled = false;
+     document.getElementById('email-form-overlay').style.display = 'flex';
 
-    playModelClip('table', 'nla_table', 1);
-  playSFX('table');
-
-  const waIcon = modelRefs['icon_wa'];
-const emailIcon = modelRefs['icon_email'];
-
-if (waIcon) waIcon.visible = true;
-if (emailIcon) emailIcon.visible = true;
-
-
-   return;
-}
-
-if (obj.name === 'hitbox_wa') {
-  window.open('https://wa.me/6281234567890', '_blank'); // ← put your actual WA number
+    const canvas = document.querySelector('canvas');
+  if (canvas) canvas.style.pointerEvents = 'none';
   return;
 }
 
-
-if (obj.name === 'hitbox_email') {
-  const userEmail = prompt('Enter your email to contact us:');
-  if (userEmail) {
-    const subject = encodeURIComponent('Contact from 3D Website');
-    const body = encodeURIComponent(`Hi Copycat Studio, I am contacting you from your 3D website.\n\nMy email: ${userEmail}`);
-    const mailtoLink = `mailto:mailbox@copycat-studio.com?subject=${subject}&body=${body}`;
-    window.open(mailtoLink, '_blank');
-  }
-  return;
-}
 
 
 if (obj.name === 'hitbox_speaker') {
@@ -2322,7 +2318,7 @@ toggleEntityState('robot', false);
   moveHitboxY('hitbox_shoes', 500);
    moveHitboxY('cart', 500);
    moveHitboxY('shoes', 500);
-  moveModelToOffsetXYZ('focus_cam', { x: -2.6, y: 0.68, z: 0.4 }, 200);
+  moveModelToOffsetXYZ('focus_cam', { x: -2.62, y: 0.68, z: 0.35 }, 200);
 
   controls.enabled = true;
   signsSwapEnabled = false;
@@ -2482,27 +2478,11 @@ setTimeout(() => scaleMeshBounce('icon_shoes', 'shoes2_2', 1.0, 1500), 600);
       break;
 
     case 'hitbox_table':
-     stopAutoOutlinePulse();
-   launchHitboxLift1();
-      launchHitboxLift2();
-      launchHitboxLift3();
-      launchHitboxLift4();
-      launchHitboxLift5();
       stopAutoOutlinePulse();
-moveModelToOffsetXYZ('focus_cam', { x: 
--0.875, y: 0.1151, z: -2.214 }, 1000);
-   controls.enabled = false;
-   
+     document.getElementById('email-form-overlay').style.display = 'flex';
 
-   playModelClip('table', 'nla_table', 1);
-  playSFX('table');
-
-  const waIcon = modelRefs['icon_wa'];
-const emailIcon = modelRefs['icon_email'];
-
-if (waIcon) waIcon.visible = true;
-if (emailIcon) emailIcon.visible = true;
-
+    const canvas = document.querySelector('canvas');
+  if (canvas) canvas.style.pointerEvents = 'none';
       break;
 
     default:
@@ -2533,7 +2513,7 @@ document.querySelectorAll('.menu-btn').forEach(btn => {
         handleHitboxClick(hitbox);
 
         // ✅ If menu or back was clicked, disable both
-        if (hitboxName === 'hitbox_menu' || hitboxName === 'hitbox_back' || hitboxName === 'hitbox_table') {
+        if (hitboxName === 'hitbox_menu' || hitboxName === 'hitbox_back') {
           document.getElementById('button_portfolio')?.classList.add('disabled');
           document.getElementById('button_show')?.classList.add('disabled');
            document.getElementById('button_contact')?.classList.add('disabled');

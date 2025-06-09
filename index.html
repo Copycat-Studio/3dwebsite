@@ -213,6 +213,112 @@
   transform: scale(1.1);
 }
 
+#email-form-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 100000;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+  box-sizing: border-box;
+  pointer-events: auto !important;
+}
+
+#email-form {
+  background: #1c1c1c;
+  padding: 2rem;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 500px;
+  color: white;
+  font-family: 'Orbitron', sans-serif;
+  box-shadow: 0 0 20px rgba(0, 255, 204, 0.2);
+  pointer-events: auto;
+}
+
+#email-form h2 {
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+  text-align: center;
+  color: #00f5cc;
+}
+
+#email-form label {
+  display: block;
+  margin: 0.5rem 0 0.2rem;
+  font-size: 0.9rem;
+}
+
+#email-form input,
+#email-form textarea {
+  width: 100%;
+  padding: 0.7rem;
+  border-radius: 6px;
+  border: none;
+  margin-bottom: 0.8rem;
+  font-size: 1rem;
+  font-family: inherit;
+  background: #2b2b2b;
+  color: #fff;
+  box-sizing: border-box;
+}
+
+#email-form textarea {
+  height: 6rem;
+  resize: vertical;
+}
+
+#email-form .form-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+#email-form button {
+  flex: 1;
+  padding: 0.8rem;
+  font-size: 1rem;
+  background-color: #00f5cc;
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+#email-form button:hover {
+  background-color: #00cfa4;
+}
+
+#email-form button#form-cancel {
+  background-color: #888;
+  color: white;
+}
+
+#email-form button#form-cancel:hover {
+  background-color: #555;
+}
+
+@media (max-width: 480px) {
+  #email-form {
+    padding: 1.5rem;
+    font-size: 0.9rem;
+  }
+
+  #email-form h2 {
+    font-size: 1.2rem;
+  }
+
+  #email-form button {
+    font-size: 0.9rem;
+  }
+}
+
+
 @media (min-width: 768px) {
   .menu-btn {
     width: 80px;
@@ -324,6 +430,30 @@
   <source media="(min-width: 769px)" srcset="/textures/help2.png" />
   <img src="/textures/help2.png" alt="Help Center" style="width: 100%; height: auto;" />
 </picture>
+
+<div id="email-form-overlay">
+  <form id="email-form">
+    <h2>📬 Contact Us</h2>
+
+    <label for="name">Name</label>
+    <input name="name" id="name" type="text" required />
+
+    <label for="email">Email</label>
+    <input name="email" id="email" type="email" required />
+
+    <label for="phone">Phone</label>
+    <input name="phone" id="phone" type="text" />
+
+    <label for="note">Note</label>
+    <textarea name="note" id="note" required></textarea>
+
+    <div class="form-actions">
+      <button type="submit">Send</button>
+      <button type="button" id="form-cancel">Cancel</button>
+    </div>
+  </form>
+</div>
+
 
 
   </body>
