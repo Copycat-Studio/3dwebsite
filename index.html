@@ -26,7 +26,7 @@
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        z-index: 99999;
+        z-index: 999999;
       }
 
       #progress-bar {
@@ -90,7 +90,7 @@
       width: 84px;
       height: 84px;
       pointer-events: none;
-      z-index: 9999;
+      z-index: 999999;
       background: url('/cursor.png') no-repeat center center;
       background-size: contain;
       transform: translate(-50%, -50%);
@@ -112,6 +112,12 @@
       #custom-cursor.pointer {
         background-image: url('/pointer.png');
       }
+
+      #custom-cursor.ibeam {
+  background-image: url('/ibeam.png');
+}
+
+
   
       .shoe-background {
   position: fixed;
@@ -225,6 +231,7 @@
   padding: 1rem;
   box-sizing: border-box;
   pointer-events: auto !important;
+  cursor: none !important;
 }
 
 #email-form {
@@ -237,6 +244,7 @@
   font-family: 'Orbitron', sans-serif;
   box-shadow: 0 0 20px rgba(0, 255, 204, 0.2);
   pointer-events: auto;
+  cursor: none !important;
 }
 
 #email-form h2 {
@@ -244,12 +252,16 @@
   font-size: 1.5rem;
   text-align: center;
   color: #00f5cc;
+  cursor: none !important;
 }
 
 #email-form label {
   display: block;
   margin: 0.5rem 0 0.2rem;
   font-size: 0.9rem;
+  font-family: inherit;
+   color: #fff;
+   cursor: none !important;
 }
 
 #email-form input,
@@ -264,11 +276,13 @@
   background: #2b2b2b;
   color: #fff;
   box-sizing: border-box;
+  cursor: none !important;
 }
 
 #email-form textarea {
   height: 6rem;
   resize: vertical;
+  cursor: none !important;
 }
 
 #email-form .form-actions {
@@ -276,27 +290,32 @@
   justify-content: space-between;
   gap: 1rem;
   margin-top: 1rem;
+  cursor: none !important;
 }
 
 #email-form button {
   flex: 1;
   padding: 0.8rem;
   font-size: 1rem;
+  font-family: inherit;
   background-color: #00f5cc;
   color: #000;
   border: none;
   border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.2s ease;
+  cursor: none !important;
 }
 
 #email-form button:hover {
   background-color: #00cfa4;
+  font-family: inherit;
 }
 
 #email-form button#form-cancel {
   background-color: #888;
-  color: white;
+  color: rgb(0, 0, 0);
+  font-family: inherit;
 }
 
 #email-form button#form-cancel:hover {
@@ -360,7 +379,7 @@
 
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-CtPShNmb.js"></script>
+    <script type="module" crossorigin src="/assets/index-B2xZG4gM.js"></script>
   </head>
 
   
@@ -434,12 +453,17 @@
 <div id="email-form-overlay">
   <form id="email-form">
     <h2>📬 Contact Us</h2>
+<p style="font-size: 0.6rem; color: #aaa; margin-bottom: 1rem;">
+  Fill the contact form with your preferred method to reach you,<br />
+  or leave us a note with anything you want to share.
+</p>
+
 
     <label for="name">Name</label>
     <input name="name" id="name" type="text" required />
 
     <label for="email">Email</label>
-    <input name="email" id="email" type="email" required />
+    <input name="email" id="email" type="email" />
 
     <label for="phone">Phone</label>
     <input name="phone" id="phone" type="text" />
