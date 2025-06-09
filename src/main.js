@@ -32,6 +32,14 @@ const animationSpeeds = {
 
 };
 
+const ignoredRaycastNames = [
+  'shoes_plastic',
+  'shoes_rubber',
+  'shoes_carbon',
+  'shoes_sol',
+  'shoes_bg'
+];
+
 
 const cursor = document.getElementById('custom-cursor');
 const pointer = document.getElementById('custom-pointer');
@@ -45,6 +53,18 @@ window.addEventListener('mousemove', (e) => {
 
   pointer.style.left = `${x}px`;
   pointer.style.top = `${y}px`;
+});
+
+const customCursor = document.getElementById('custom-cursor');
+
+// When entering input/textarea: switch to ibeam
+document.querySelectorAll('input, textarea').forEach(el => {
+  el.addEventListener('mouseenter', () => {
+    customCursor.classList.add('ibeam');
+  });
+  el.addEventListener('mouseleave', () => {
+    customCursor.classList.remove('ibeam');
+  });
 });
 
 
@@ -378,6 +398,10 @@ let originalEnvMap = null; // for restoring later
 let isMuted = false;
 let mouseDownPos = { x: 0, y: 0 };
 let isDragging = false;
+let isFormOpen = false;
+let isRaycastEnabled = true;
+
+
 
 
 
@@ -1154,16 +1178,20 @@ if (canvas) canvas.style.pointerEvents = 'auto';
 });
 
 document.getElementById('form-cancel')?.addEventListener('click', () => {
-  document.getElementById('email-form-overlay').style.display = 'none';
+ isFormOpen = false;
 
-  const canvas = document.querySelector('canvas');
-  if (canvas) canvas.style.pointerEvents = 'auto';
+document.getElementById('email-form-overlay').style.display = 'none';
+document.querySelector('canvas').style.pointerEvents = 'auto';
+
+controls.enabled = true;
 });
 document.getElementById('form-cancel')?.addEventListener('touchstart', () => {
-  document.getElementById('email-form-overlay').style.display = 'none';
+ isFormOpen = false;
 
-  const canvas = document.querySelector('canvas');
-  if (canvas) canvas.style.pointerEvents = 'auto';
+document.getElementById('email-form-overlay').style.display = 'none';
+document.querySelector('canvas').style.pointerEvents = 'auto';
+
+controls.enabled = true;
 });
 
 
@@ -1185,6 +1213,7 @@ document.getElementById('toggle-shoe-button')?.addEventListener('click', () => {
     playModelClip('shoes_carbon', 'nla_scarbonr', 1);
     playModelClip('shoes_sol', 'nla_ssolr', 1);
     launchHitboxLift5();
+    isRaycastEnabled = false;
     controls.minAzimuthAngle = -Infinity;
     controls.maxAzimuthAngle = Infinity;
     moveModelToOffsetXYZ('focus_cam', { x: -2.615, y: 0.65, z: 0.46 }, 3000);
@@ -1198,6 +1227,7 @@ document.getElementById('toggle-shoe-button')?.addEventListener('click', () => {
     playModelClip('shoes_rubber', 'nla_srubber', 1);
     playModelClip('shoes_carbon', 'nla_scarbon', 1);
     playModelClip('shoes_sol', 'nla_ssol', 1);
+    isRaycastEnabled = true;
     controls.minAzimuthAngle = -Math.PI/-3; // 🔒 Limit to -180°
     controls.maxAzimuthAngle = Math.PI/-1;  // 🔒 Limit to +180°
       resetSelectedHitboxY([
@@ -1796,6 +1826,8 @@ function onMouseMove(e) {
   mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(mouse, camera);
+  if (isFormOpen) return;
+
 
   const intersects = raycaster.intersectObjects(scene.children, true);
   let newHoveredHitbox = null;
@@ -1812,6 +1844,8 @@ function onMouseMove(e) {
       break;
     }
   }
+
+
 
   const captionEl = document.getElementById('hood-caption');
 
@@ -1961,10 +1995,23 @@ cursor.classList.add('pointer');
 
 function onClick(e) {
   if (inputLocked || isDragging) return;
+   if (isFormOpen) return;
 
-  raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObjects(scene.children, true);
-  if (!intersects.length) return;
+ raycaster.setFromCamera(mouse, camera);
+
+// Collect only mesh objects and exclude unwanted ones
+const filteredMeshes = [];
+scene.traverse(obj => {
+  if (
+    obj.isMesh &&
+    !ignoredRaycastNames.includes(obj.name)
+  ) {
+    filteredMeshes.push(obj);
+  }
+});
+
+const intersects = raycaster.intersectObjects(filteredMeshes, true);
+if (!intersects.length) return;
 
   let obj = intersects[0].object;
   while (obj.parent && obj.parent !== scene) obj = obj.parent;
@@ -2262,10 +2309,13 @@ return;
 
 if (obj.name === 'hitbox_table') {
   stopAutoOutlinePulse();
-     document.getElementById('email-form-overlay').style.display = 'flex';
+  isFormOpen = true;
 
-    const canvas = document.querySelector('canvas');
-  if (canvas) canvas.style.pointerEvents = 'none';
+  document.getElementById('email-form-overlay').style.display = 'flex';
+  document.querySelector('canvas').style.pointerEvents = 'none';
+
+  // Optional: disable controls
+  controls.enabled = false;
   return;
 }
 
@@ -2479,10 +2529,14 @@ setTimeout(() => scaleMeshBounce('icon_shoes', 'shoes2_2', 1.0, 1500), 600);
 
     case 'hitbox_table':
       stopAutoOutlinePulse();
-     document.getElementById('email-form-overlay').style.display = 'flex';
+     isFormOpen = true;
 
-    const canvas = document.querySelector('canvas');
-  if (canvas) canvas.style.pointerEvents = 'none';
+  document.getElementById('email-form-overlay').style.display = 'flex';
+  document.querySelector('canvas').style.pointerEvents = 'none';
+
+
+  // Optional: disable controls
+  controls.enabled = false;
       break;
 
     default:
