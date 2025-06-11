@@ -38,11 +38,7 @@
   overflow: hidden;
   background-color: black;
       }
-      
-        * {
-    -webkit-tap-highlight-color: transparent;
-    -webkit-touch-callout: none;
-  }
+    
       
 #progress-bar::-webkit-progress-value {
   background-color: #f89b27;
@@ -230,7 +226,6 @@
   align-items: center;
   padding: 1rem;
   box-sizing: border-box;
-  pointer-events: auto !important;
   cursor: none !important;
 }
 
@@ -240,11 +235,12 @@
   border-radius: 12px;
   width: 100%;
   max-width: 500px;
+  z-index: 100005;
   color: white;
   font-family: 'Orbitron', sans-serif;
   box-shadow: 0 0 20px rgba(0, 255, 204, 0.2);
   pointer-events: auto;
-  cursor: none !important;
+  cursor: none;
 }
 
 #email-form h2 {
@@ -252,7 +248,7 @@
   font-size: 1.5rem;
   text-align: center;
   color: #00f5cc;
-  cursor: none !important;
+  cursor: none;
 }
 
 #email-form label {
@@ -261,11 +257,12 @@
   font-size: 0.9rem;
   font-family: inherit;
    color: #fff;
-   cursor: none !important;
+  cursor: none;
 }
 
 #email-form input,
 #email-form textarea {
+  z-index: 100006;
   width: 100%;
   padding: 0.7rem;
   border-radius: 6px;
@@ -276,13 +273,13 @@
   background: #2b2b2b;
   color: #fff;
   box-sizing: border-box;
-  cursor: none !important;
+  cursor: none;
 }
+
 
 #email-form textarea {
   height: 6rem;
   resize: vertical;
-  cursor: none !important;
 }
 
 #email-form .form-actions {
@@ -290,7 +287,7 @@
   justify-content: space-between;
   gap: 1rem;
   margin-top: 1rem;
-  cursor: none !important;
+  cursor: none;
 }
 
 #email-form button {
@@ -302,9 +299,8 @@
   color: #000;
   border: none;
   border-radius: 6px;
-  cursor: pointer;
   transition: background-color 0.2s ease;
-  cursor: none !important;
+  cursor: none;
 }
 
 #email-form button:hover {
@@ -379,7 +375,7 @@
 
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-C86GC6RH.js"></script>
+    <script type="module" crossorigin src="/assets/index-dP7OL92x.js"></script>
   </head>
 
   
@@ -452,10 +448,10 @@
 
 <div id="email-form-overlay">
   <form id="email-form">
-    <h2>📬 Contact Us</h2>
-<p style="font-size: 0.6rem; color: #aaa; margin-bottom: 1rem;">
-  Fill the contact form with your preferred method to reach you,<br />
-  or leave us a note with anything you want to share.
+    <h2>📬 Contact Form</h2>
+<p style="font-size: 0.6rem; color: #aaa; margin-bottom: 1rem; text-align: center;">
+  we will reach you as soon as possible<br />
+  or just leave us a note with anything you want to share.
 </p>
 
 
@@ -463,21 +459,33 @@
     <input name="name" id="name" type="text" required />
 
     <label for="email">Email</label>
-    <input name="email" id="email" type="email" />
+    <input name="email" id="email" type="email" required/>
 
     <label for="phone">Phone</label>
-    <input name="phone" id="phone" type="text" />
+    <input name="phone" id="phone" type="text" required/>
 
     <label for="note">Note</label>
     <textarea name="note" id="note" required></textarea>
 
     <div class="form-actions">
-      <button type="submit">Send</button>
+      <button type="submit" id="submit-btn">Send</button>
       <button type="button" id="form-cancel">Cancel</button>
     </div>
   </form>
 </div>
 
+<script>
+  if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    window.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('#email-form input, #email-form textarea, #email-form button')
+        .forEach(el => {
+          el.style.cursor = 'auto';
+          el.style.touchAction = 'manipulation';
+          el.style.pointerEvents = 'auto';
+        });
+    });
+  }
+</script>
 
 
   </body>
