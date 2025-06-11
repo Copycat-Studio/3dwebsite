@@ -1170,6 +1170,7 @@ document.getElementById('email-form')?.addEventListener('submit', async (e) => {
     await fetch('https://script.google.com/macros/s/AKfycbyS7C0-_TlnURsSsjda4JrxEF3WT42RG2kfyOVSUeTLEFy3kK4RBU885xBBQU-SJRKD/exec', {
       method: 'POST',
       body: JSON.stringify(data)
+      
     });
 
     alert('📬 Message sent!');
@@ -1182,6 +1183,12 @@ if (canvas) canvas.style.pointerEvents = 'auto';
     alert('❌ Failed to send. Please try again.');
   }
 });
+
+document.querySelector('#email-form button[type="submit"]')?.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  document.getElementById('email-form')?.requestSubmit(); // Triggers the submit programmatically
+}, { passive: false });
+
 
 document.getElementById('form-cancel')?.addEventListener('click', () => {
  isFormOpen = false;
@@ -2740,6 +2747,8 @@ function animate() {
 });
 
 
+
+
   swapTimer += delta;
  if (signsSwapEnabled && swapTimer >= 1 && modelRefs['sign1'] && modelRefs['sign2']) {
   swapTimer = 0;
@@ -2757,5 +2766,35 @@ if (currentFocus) {
 updateDebugMarker(); 
 renderer.render(scene, camera);
 }
+
+const form = document.getElementById('email-form');
+const submitBtn = document.getElementById('submit-btn');
+
+// 🧠 Utility: check form validity
+function checkFormFilled() {
+  return form.checkValidity();
+}
+
+// 🎯 Update label + color
+function updateSubmitLabel() {
+  const isValid = checkFormFilled();
+  submitBtn.textContent = isValid ? 'Send' : 'Fill';
+  
+  // Update style
+  submitBtn.style.backgroundColor = isValid ? '#00ff3c' :  '#00f5cc' ;
+  submitBtn.style.color = isValid ? '#000' : '#000';
+}
+
+// 🧬 Attach listeners
+form.querySelectorAll('input, textarea').forEach(field => {
+  field.addEventListener('input', updateSubmitLabel);
+  field.addEventListener('blur', updateSubmitLabel);
+  field.addEventListener('change', updateSubmitLabel);
+});
+
+// Initial update
+window.addEventListener('DOMContentLoaded', updateSubmitLabel);
+
+
 
 animate();
