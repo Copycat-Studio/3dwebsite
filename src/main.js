@@ -22,7 +22,7 @@ camera.add(listener);
 const animationSpeeds = {
   generator: 1,
   lamp: 0.3,
-  menu: 0.5,
+  menu: 1,
   robot: 0.4,
   engine_corebroken: 0.4,
   speaker: 2.1,
@@ -70,7 +70,7 @@ document.querySelectorAll('input, textarea').forEach(el => {
 
 // === debug switch ===
 const DEBUG = false; 
-window.DEBUG = true; 
+window.DEBUG = false; 
 const hitboxOriginalPositions = {};
 
 if (!DEBUG) {
@@ -424,9 +424,15 @@ console.log('🔄 Reset controls zoom limits');
   toggleEntityState('robot', true);
   renderer.setClearColor(0x17021F);
   
-  // 🔄 Restore model visibility unless locked
 Object.entries(modelRefs).forEach(([name, model]) => {
-  if (name === 'engine_core') return; // 🚫 skip modifying engine_core
+  if (name === 'engine_core') return;
+
+  if (name === 'note_engine') {
+    const engineCoreVisible = modelRefs['engine_core']?.visible;
+    model.visible = !!engineCoreVisible; // 👁️ Only show note_engine if engine_core is visible
+    return;
+  }
+
 
   model.visible = !visibilityLock[name];
   if (visibilityLock[name]) {
@@ -680,7 +686,7 @@ function isMobileDevice() {
   return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
-  if (!isMobileDevice()) {
+if (!isMobileDevice()) {
   const customCursor = document.getElementById('custom-cursor');
   const customPointer = document.getElementById('custom-pointer');
 
@@ -959,7 +965,7 @@ function logFocusPosition() {
 const modelNames = [
   'car', 'cart', 'lamp', 'hood', 'generator', 'table', 'sky', 'speaker',
   'ground', 'robot', 'sign1', 'sign2', 'menu', 'back', 'guide',
-  'background', 'logo', 'person',
+  'background', 'logo', 'person', 'note_engine', 'details',
   // shoes
    'shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol', 'shoes_bg1',
    'hitbox_sbody', 'hitbox_sbot', 'hitbox_splas', 'hitbox_scarb', 'hitbox_srubb', 'hitbox_ssol',
@@ -985,7 +991,7 @@ function loadModel(name) {
     modelRefs[model.name] = model;
 
    if ([
-    'engine_core', 'shoes', 'shoes_bot', 'shoes_body', 
+    'engine_core', 'shoes', 'shoes_bot', 'shoes_body', 'note_engine',
     'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol', 'shoes_bg'
    ].includes(name)) {
   model.visible = false; // ✅ Hide on load
@@ -1023,7 +1029,7 @@ console.log(`🌍 World position of "${model.name}":`, worldPos.toArray());
 
         // ==== loop list=====
     if ([
-  'generator', 'lamp', 'guide', 'person', 'menu', 'robot', 'icon_shoes',
+  'generator', 'lamp', 'guide', 'person', 'menu', 'robot', 'icon_shoes', 'note_engine',
   'robot1', 'robot2', 'engine_corebroken', 'engine_core', 'speaker', 'cs_app', 'cs_vr'
 ].includes(name.toLowerCase()) && gltf.animations?.length > 0) {
   const mixer = new THREE.AnimationMixer(model);
@@ -1087,7 +1093,7 @@ window.tweenToCamera = tweenToCamera;
 
     if (name === 'ground') {
       const initMainCam = () => {
-        const cam = camTargets['maincam'];
+        const cam = camTargets['activecam'];
         if (cam) {
           camera.position.copy(cam.position);
           camera.quaternion.copy(cam.quaternion);
@@ -1234,7 +1240,7 @@ document.getElementById('toggle-shoe-button')?.addEventListener('click', () => {
   'hitbox_sbody', 'hitbox_sbot', 'hitbox_splas',
   'hitbox_scarb', 'hitbox_srubb', 'hitbox_ssol'
 ], 3000);
-    moveModelToOffsetXYZ('focus_cam', { x: -2.62, y: 0.68, z: 0.35 }, 3000);
+    moveModelToOffsetXYZ('focus_cam', { x: -2.55, y: 0.68, z: 0.35 }, 3000);
     btn.src = '/textures/button_toggle1.png';
   }
 
@@ -2271,6 +2277,14 @@ return;
 if (obj.name === 'hitbox_engine3') {
   hideUntilRemoved('engine_core', 'engine_corebroken');
   playSFX('right1');
+  
+   const note = modelRefs['note_engine'];
+  if (note) {
+    note.visible = false; // ensure it starts hidden
+    setTimeout(() => {
+      note.visible = true; // reveal after 3 seconds (3000ms)
+    }, 3000);
+  }
 
   const engineTargets = ['engine_corebroken', 'hitbox_engine', 'hitbox_engine1', 'hitbox_engine2', 'hitbox_engine3'];
 
@@ -2368,7 +2382,7 @@ toggleEntityState('robot', false);
   moveHitboxY('hitbox_shoes', 500);
    moveHitboxY('cart', 500);
    moveHitboxY('shoes', 500);
-  moveModelToOffsetXYZ('focus_cam', { x: -2.62, y: 0.68, z: 0.35 }, 200);
+  moveModelToOffsetXYZ('focus_cam', {  x: -2.55, y: 0.68, z: 0.35  }, 200);
 
   controls.enabled = true;
   signsSwapEnabled = false;
@@ -2718,7 +2732,7 @@ function animate() {
   'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive', 'icon_ig', 'person', 'guide', 'speaker', 'shoes', 'icon_shoes',
   'engine_corebroken', 'engine_core', 'engine_top', 'engine_cover', 'engine_fan', 'engine_base',
   'shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol',
-  'cs_app', 'cs_vr'
+  'cs_app', 'cs_vr', 'note_engine'
 ].forEach(name => {
   const model = modelRefs[name];
   const mixer = model?.userData?.mixer;
