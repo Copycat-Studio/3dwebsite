@@ -198,13 +198,21 @@
 .menu-btn {
   width: 15vw;
   height: auto;
-  max-width: 144px;
+  max-width: 128px;
   object-fit: contain;
   cursor: none;
   transition: transform 0.2s ease;
   touch-action: manipulation;
 }
 
+@media (min-width: 768px) {
+  .menu-btn {
+    width: 6vw;
+    max-width: 128px;
+    pointer-events: auto !important;
+    cursor: none;
+  }
+}
 .menu-btn.disabled {
   opacity: 0.3;
   pointer-events: none;
@@ -334,15 +342,6 @@
   }
 }
 
-
-@media (min-width: 768px) {
-  .menu-btn {
-    width: 80px;
-    max-width: 144px;
-    pointer-events: auto !important;
-    cursor: none;
-  }
-}
 
 @media (max-width: 768px) {
   .bottom-menu {
