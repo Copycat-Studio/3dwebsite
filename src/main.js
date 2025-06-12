@@ -297,6 +297,9 @@ loader.load('/textures/my_bg.jpg', texture => {
 });
 const modelRefs = {};
 const camTargets = {};
+
+// === Caption List ===
+
 const captionMap = {
   'hitbox_hood': 'Open<br>The Engine',
   'hitbox_menu': 'Click To See<br>Portfolio',
@@ -317,7 +320,7 @@ const captionMap = {
   'hitbox_shoes' : 'See Detail',
   'hitbox_sbody' : 'UPPER<br><br>Stylish shoes, with combination of suede and canvas<br>have details on leather and so on<br><br>Model 3D Scanned from Compass® Velocity®',
   'hitbox_sbot' : 'OUTSOLE<br><br>With good grip will boost your power-deliver<br><br>Model 3D Scanned from Compass® Velocity®', 
-  'hitbox_splas' : 'HEEL COUNTER<br><br>loren ipsum heuheuuy<br><br>Model 3D Scanned from Compass® Velocity®',
+  'hitbox_splas' : 'HEEL COUNTER<br><br>Provide stability and support your heel<br><br>Model 3D Scanned from Compass® Velocity®',
   'hitbox_scarb' : 'CARBON SHANK<br><br>With the latest technology, will help to boost your power<br><br>Model 3D Scanned from Compass® Velocity®', 
   'hitbox_srubb' : 'RUBBER UNIT<br><br>Give better comfort on your daily activities<br><br>Model 3D Scanned from Compass® Velocity®',
   'hitbox_ssol' : 'MIDSOLE<br><br>With soft compound will give you best comfort on this shoes<br><br>Model 3D Scanned from Compass® Velocity®'
@@ -1061,6 +1064,49 @@ console.log(`🌍 World position of "${model.name}":`, worldPos.toArray());
       model.userData.clips = gltf.animations;
     }
 
+const playAnim = (modelName, clipNames, playSpeed = 1) => {
+  const model = modelRefs[modelName];
+  if (!model || !model.userData.clips) return;
+
+  const mixer = model.userData.mixer || new THREE.AnimationMixer(model);
+  if (!model.userData.mixer) model.userData.mixer = mixer;
+
+  (Array.isArray(clipNames) ? clipNames : [clipNames]).forEach(clipName => {
+    const clip = model.userData.clips.find(c => c.name === clipName);
+    if (!clip) {
+      return console.warn(`❌ Clip "${clipName}" not found on "${modelName}"`);
+    }
+
+    const action = mixer.clipAction(clip);
+
+    if (modelName.toLowerCase() === 'robot') {
+      action.setLoop(THREE.LoopRepeat);
+    } else {
+      action.setLoop(THREE.LoopPingPong);
+    }
+
+    action.clampWhenFinished = false;
+    action.timeScale = playSpeed;
+    action.reset().play();
+
+    console.log(`🔁 Playing "${clipName}" on "${modelName}" @ ${playSpeed}x (${modelName === 'robot' ? 'REPEAT' : 'PINGPONG'})`);
+  });
+};
+
+
+    if (['icon_reel', 'icon_vr', 'icon_app', 'icon_immersive', 'icon_ig'].includes(name.toLowerCase())) {
+  const clipMap = {
+    'icon_reel': 'nla_iconreel',
+    'icon_vr': 'nla_iconvr',
+    'icon_app': 'nla_iconapp',
+    'icon_immersive': 'nla_iconim',
+    'icon_ig': 'nla_iconig'
+  };
+
+  playAnim(name.toLowerCase(), clipMap[name.toLowerCase()], 0.5);
+}
+
+    
         // ==== loop list=====
     if ([
   'generator', 'lamp', 'guide', 'person', 'menu', 'robot', 'icon_shoes', 'note_engine',
@@ -1523,6 +1569,8 @@ const sfxFiles = {
   menu: '/audio/sfx_menu.mp3',
   swoosh: '/audio/sfx_swoosh.mp3',
   right1: '/audio/sfx_right1.mp3',
+  right2: '/audio/sfx_engine1.mp3',
+  right3: '/audio/sfx_engine2.mp3',
   ON: '/audio/sfx_on.mp3',
   OFF: '/audio/sfx_off.mp3',
   core: '/audio/sfx_core.mp3',
@@ -1571,8 +1619,8 @@ const proximitySounds = [
  {
   position: new THREE.Vector3(0.78964, -0.31310, 1.55398),
   sound: 'BGM',
-  radius: 20,
-  minDist: 6,
+  radius: 30,
+  minDist: 8,
   maxVol: .5,
   triggered: true,
   name: 'speaker',
@@ -1917,32 +1965,43 @@ if (newHoveredHitbox !== lastHoveredHitbox) {
 setTimeout(() => playSFX('table'),400);
     }
 
-    // 🛑 Stop icon animations
-    const stopAnim = (modelName) => {
-      const model = modelRefs[modelName];
-      if (!model?.userData?.mixer) return;
-      model.userData.mixer.stopAllAction();
-      console.log(`🛑 Stopped animations on ${modelName}`);
-    };
+const resumeAnim = (modelName) => {
+  const model = modelRefs[modelName];
+  const mixer = model?.userData?.mixer;
 
-    switch (lastHoveredHitbox) {
-      case 'hitbox_reel':
-        stopAnim('icon_reel');
-            break;
-      case 'hitbox_vr':
-        stopAnim('icon_vr');
-                break;
-      case 'hitbox_app':
-        stopAnim('icon_app');
-        break;
-      case 'hitbox_ig':
-        stopAnim('icon_ig');
-        break;
-      case 'hitbox_immersive':
-        stopAnim('icon_immersive');
-        break;
-                
-    }
+  if (!model || !mixer) return;
+
+  if (model.userData.clips?.length) {
+    model.userData.clips.forEach(clip => {
+      const action = mixer.existingAction(clip);
+      if (action && action.paused) {
+        action.paused = false;
+        console.log(`▶️ Resumed "${clip.name}" on "${modelName}"`);
+      }
+    });
+  }
+};
+
+
+
+     switch (lastHoveredHitbox) {
+  case 'hitbox_reel':
+    resumeAnim('icon_reel');
+    break;
+  case 'hitbox_vr':
+    resumeAnim('icon_vr');
+    break;
+  case 'hitbox_app':
+    resumeAnim('icon_app');
+    break;
+  case 'hitbox_immersive':
+    resumeAnim('icon_immersive');
+    break;
+  case 'hitbox_ig':
+    resumeAnim('icon_ig');
+    break;
+}
+
   }
 
   // === Hover in ===
@@ -1966,60 +2025,52 @@ setTimeout(() => playSFX('table'),400);
 setTimeout(() => playSFX('table'),400);
     }
 
-// 🔁 Play icon animations with custom speed
-const playAnim = (modelName, clipNames, playSpeed = 1) => {
+
+const pauseAnim = (modelName) => {
   const model = modelRefs[modelName];
-  if (!model || !model.userData.clips) return;
+  const mixer = model?.userData?.mixer;
 
-  const mixer = model.userData.mixer || new THREE.AnimationMixer(model);
-  if (!model.userData.mixer) model.userData.mixer = mixer;
+  if (!model || !mixer) return;
 
-  (Array.isArray(clipNames) ? clipNames : [clipNames]).forEach(clipName => {
-    const clip = model.userData.clips.find(c => c.name === clipName);
-    if (!clip) {
-      return console.warn(`❌ Clip "${clipName}" not found on "${modelName}"`);
-    }
-
-    const action = mixer.clipAction(clip);
-
-    if (modelName.toLowerCase() === 'robot') {
-      action.setLoop(THREE.LoopRepeat);
-    } else {
-      action.setLoop(THREE.LoopPingPong);
-    }
-
-    action.clampWhenFinished = false;
-    action.timeScale = playSpeed;
-    action.reset().play();
-
-    console.log(`🔁 Playing "${clipName}" on "${modelName}" @ ${playSpeed}x (${modelName === 'robot' ? 'REPEAT' : 'PINGPONG'})`);
-  });
+  if (model.userData.clips?.length) {
+    model.userData.clips.forEach(clip => {
+      const action = mixer.existingAction(clip);
+      if (action && action.isRunning()) {
+        action.paused = true;
+        console.log(`⏸️ Paused "${clip.name}" on "${modelName}"`);
+      }
+    });
+  }
 };
 
 
-
-  switch (newHoveredHitbox) {
+ switch (newHoveredHitbox) {
   case 'hitbox_reel':
-    playAnim('icon_reel', 'nla_iconreel', 0.5);
-        break;
+    pauseAnim('icon_reel');
+    break;
   case 'hitbox_vr':
-    playAnim('icon_vr', 'nla_iconvr', 0.5);
-       break;
+    pauseAnim('icon_vr');
+    break;
   case 'hitbox_app':
-    playAnim('icon_app', 'nla_iconapp', 0.4);
-      break;
+    pauseAnim('icon_app');
+    break;
   case 'hitbox_immersive':
-    playAnim('icon_immersive', 'nla_iconim', 0.5);
-     break;
+    pauseAnim('icon_immersive');
+    break;
   case 'hitbox_ig':
-    playAnim('icon_ig', 'nla_iconig', 0.5);
-     break;
+    pauseAnim('icon_ig');
+    break;
 }
+
+
+
 
 
   }
 
   lastHoveredHitbox = newHoveredHitbox;
+
+  
 }
 
 
@@ -2156,7 +2207,7 @@ if (obj.name === 'hitbox_menu') {
   if (inputLocked) return; // ⛔ prevent spamming
   inputLocked = true;
   setTimeout(() => inputLocked = false, 700); // 🔓 unlock after buffer
-  
+
   const DELAY_MS = 1000;
   setTimeout(() => {
 
@@ -2297,7 +2348,7 @@ if (obj.name === 'hitbox_engine1') {
   inputLocked = true;
   setTimeout(() => inputLocked = false, 700);
 
-playSFX('right1');
+playSFX('right2');
 playModelClipOnce('engine_cover', 'nla_encover', 1);
 return;
 }
@@ -2308,7 +2359,7 @@ if (obj.name === 'hitbox_engine2') {
   inputLocked = true;
   setTimeout(() => inputLocked = false, 700);
 
-playSFX('right1');
+playSFX('right3');
 playModelClipOnce('engine_base', 'nla_enbase', 1);
 playModelClipOnce('engine_top', 'nla_entop', 1);
 playModelClipOnce('engine_fan', 'nla_enfan', 1);
@@ -2318,7 +2369,7 @@ return;
 if (obj.name === 'hitbox_engine3') {
   hideUntilRemoved('engine_core', 'engine_corebroken');
   playSFX('right1');
-  
+  setTimeout(() =>playSFX('right3'), 500);
    const note = modelRefs['note_engine'];
   if (note) {
     note.visible = false; // ensure it starts hidden
