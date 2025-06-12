@@ -69,7 +69,7 @@ document.querySelectorAll('input, textarea').forEach(el => {
 
 
 // === debug switch ===
-const DEBUG = false; 
+const DEBUG = true; 
 window.DEBUG = false; 
 const hitboxOriginalPositions = {};
 
@@ -153,6 +153,35 @@ function moveModelToOffsetXYZ(modelName, offset = { x: 0, y: 0, z: 0 }, duration
       model.position.set(obj.x, obj.y, obj.z);
     })
     .start();
+}
+
+function moveModelToMatchMesh(modelName, targetModelName, targetMeshName, duration = 1000) {
+  const model = modelRefs[modelName];
+  const targetModel = modelRefs[targetModelName];
+  const mesh = targetModel?.getObjectByName(targetMeshName);
+
+  if (!model || !mesh) {
+    console.warn(`❌ Model or mesh not found: ${modelName}, ${targetMeshName}`);
+    return;
+  }
+
+  // Get world positions
+  const currentPos = new THREE.Vector3();
+  model.getWorldPosition(currentPos);
+
+  const targetPos = new THREE.Vector3();
+  mesh.getWorldPosition(targetPos);
+
+  // Calculate local offset between current and target
+  const offset = {
+    x: targetPos.x - currentPos.x,
+    y: targetPos.y - currentPos.y,
+    z: targetPos.z - currentPos.z
+  };
+
+  console.log('🚀 Offset:', offset);
+
+  moveModelToOffsetXYZ(modelName, offset, duration);
 }
 
 
@@ -507,6 +536,11 @@ shoeToggleState = false;
       action.play();
       menuModel.userData.mixer = mixer;
     }
+
+    ['button_portfolio', 'button_show', 'button_contact'].forEach(id => {
+  document.getElementById(id)?.classList.remove('disabled');
+});
+
 
 ['shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol', 'shoes_bg'].forEach(name => {
   const model = modelRefs[name];
@@ -1271,7 +1305,7 @@ document.getElementById('toggle-shoe-button')?.addEventListener('touchstart', ()
     launchHitboxLift5();
     controls.minAzimuthAngle = -Infinity;
     controls.maxAzimuthAngle = Infinity;
-
+    moveModelToOffsetXYZ('focus_cam', { x: -2.615, y: 0.65, z: 0.46 }, 3000);
     btn.src = '/textures/button_toggle2.png';
   } else {
     // SBODY version
@@ -1289,7 +1323,7 @@ document.getElementById('toggle-shoe-button')?.addEventListener('touchstart', ()
       'hitbox_sbody', 'hitbox_sbot', 'hitbox_splas',
       'hitbox_scarb', 'hitbox_srubb', 'hitbox_ssol'
     ], 3000);
-
+    moveModelToOffsetXYZ('focus_cam', { x: -2.55, y: 0.68, z: 0.35 }, 3000);
     btn.src = '/textures/button_toggle1.png';
   }
 
@@ -2405,25 +2439,6 @@ toggleEntityState('robot', false);
   return;
 }
 
-if (obj.name === 'hitbox_splas') {
-  playModelClip('shoes_bot', 'nla_sbotr', 1);
-  playModelClip('shoes_body', 'nla_sbodyr', 1);
-  playModelClip('shoes_plastic', 'nla_splasr', 1);
-  playModelClip('shoes_rubber', 'nla_srubberr', 1);
-  playModelClip('shoes_carbon', 'nla_scarbonr', 1);
-  playModelClip('shoes_sol', 'nla_ssolr', 1);
-  return;
-}
-
-if (obj.name === 'hitbox_sbody') {
-  playModelClip('shoes_bot', 'nla_sbot', 1);
-  playModelClip('shoes_body', 'nla_sbody', 1);
-  playModelClip('shoes_plastic', 'nla_splas', 1);
-  playModelClip('shoes_rubber', 'nla_srubber', 1);
-  playModelClip('shoes_carbon', 'nla_scarbon', 1);
-  playModelClip('shoes_sol', 'nla_ssol', 1);
-  return;
-}
 // === end of click ===
 }
 
