@@ -305,6 +305,7 @@ const captionMap = {
   'hitbox_menu': 'Click To See<br>Portfolio',
   'hitbox_back': 'Product<br>Showcase',
   'hitbox_guide': 'Thanks to!',
+  'hitbox_robot': 'What News?',
   'hitbox_app': 'COMING<br>SOON',
   'hitbox_reel': 'Showreel',
   'hitbox_vr': 'COMING<br>SOON',
@@ -369,6 +370,19 @@ const hitboxMap = {
   maxAzimuthAngle: Math.PI / 1
   }
   },
+  'hitbox_robot': {
+    cam: {
+    desktop: 'cam_robot',
+    mobile: 'cam_robot'
+    },
+    model: 'robot',
+    controls: {
+    minDistance: .1,
+    maxDistance: 6.0,
+  minAzimuthAngle: -Math.PI / 1, 
+  maxAzimuthAngle: Math.PI / 1
+  }
+  },
    'hitbox_engine': {
     cam: {
     desktop: 'cam_engine',
@@ -385,7 +399,7 @@ const hitboxMap = {
    'hitbox_shoes': {
     cam: {
     desktop: 'cam_shoes',
-    mobile: 'cam_shoes'
+    mobile: 'cam_shoesmobile'
     },
     model: 'shoes',
   controls: {
@@ -435,13 +449,23 @@ let isRaycastEnabled = true;
 
 
 
-
+/// ==== reset setting ====
 
 function resetSceneState() {
   console.log('🔁 Reset triggered (button or ESC)...');
 
-  // 🔒 Hide reset button
+const articlePanel = document.getElementById('article-panel');
+  if (articlePanel) {
+    articlePanel.style.display = 'none';
+  }
 
+  const loader = document.getElementById('article-loading');
+  if (loader) loader.style.display = 'none';
+
+ const viewerPanel = document.getElementById('article-viewer-panel');
+  if (viewerPanel) {
+    viewerPanel.style.display = 'none';
+  }
 
   controls.minAzimuthAngle = -Infinity;
 controls.maxAzimuthAngle = Infinity;
@@ -822,7 +846,7 @@ function throttle(func, limit) {
 
 function launchHitboxLift1() {
   const targets = [
-    'hitbox_menu', 'hitbox_table', 'hitbox_hood', 'hitbox_back', 'hitbox_guide', 'hitbox_cable', 'hitbox_shoes'
+    'hitbox_menu', 'hitbox_table', 'hitbox_hood', 'hitbox_back', 'hitbox_guide', 'hitbox_cable', 'hitbox_shoes', 'hitbox_robot', 'hitbox_block'
   ];
   
   moveMultipleHitboxesY(targets, 500);
@@ -846,14 +870,16 @@ function launchHitboxLift3() {
 
 function launchHitboxLift4() {
   const targets = [
-    'hitbox_menu', 'hitbox_table', 'hitbox_hood', 'hitbox_back', 'hitbox_guide', 'hitbox_cable']
+    'hitbox_menu', 'hitbox_table', 'hitbox_hood', 'hitbox_back', 'hitbox_guide', 'hitbox_cable', 'hitbox_robot', 'hitbox_block'
+  ];
   
   moveMultipleHitboxesY(targets, 500);
 }
 
 function launchHitboxLift5() {
   const targets = [
-    'hitbox_sbody', 'hitbox_sbot', 'hitbox_splas', 'hitbox_scarb', 'hitbox_srubb', 'hitbox_ssol']
+    'hitbox_sbody', 'hitbox_sbot', 'hitbox_splas', 'hitbox_scarb', 'hitbox_srubb', 'hitbox_ssol'
+  ];
   
   moveMultipleHitboxesY(targets, 500);
 }
@@ -1005,10 +1031,10 @@ const modelNames = [
   'background', 'logo', 'person', 'note_engine', 'details',
   // shoes
    'shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol', 'shoes_bg1',
-   'hitbox_sbody', 'hitbox_sbot', 'hitbox_splas', 'hitbox_scarb', 'hitbox_srubb', 'hitbox_ssol',
+   'hitbox_sbody', 'hitbox_sbot', 'hitbox_splas', 'hitbox_scarb', 'hitbox_srubb', 'hitbox_ssol', 'hitbox_robot',
    //cam
-  'cam_engine', 'cam_guide','cam_custom','cam_menu', 'cam_hood', 'cam_shoes',
-  'cam_hoodmobile', 'cam_custommobile', 'cam_menumobile', 'cam_enginemobile',
+  'cam_engine', 'cam_guide','cam_custom','cam_menu', 'cam_hood', 'cam_shoes', 'cam_robot',
+  'cam_hoodmobile', 'cam_custommobile', 'cam_menumobile', 'cam_enginemobile', 'cam_shoesmobile',
     //hitbox
   'hitbox_menu', 'hitbox_table', 'hitbox_hood', 'hitbox_back', 'hitbox_cable', 'hitbox_shoes',
   'hitbox_app', 'focus_cam', 'hitbox_vr', 'hitbox_immersive', 'hitbox_guide', 'hitbox_speaker',
@@ -1216,6 +1242,101 @@ function onModelLoaded() {
 //====== FINISH LOADING=====
 
 
+window.showArticles = async () => {
+  const articlePanel = document.getElementById('article-panel');
+  const loader = document.getElementById('article-loading');
+
+  if (!articlePanel.contains(loader)) {
+    articlePanel.appendChild(loader);
+  }
+
+  loader.style.display = 'flex';
+  articlePanel.style.display = 'grid';
+
+  try {
+    const response = await fetch('https://script.google.com/macros/s/AKfycbyCd25zFxjqX5nnhBPgmVJfFP63RM8C9dpZ3b4zACuFhi8RWBrz32PVx-wuSbTsS9S0Fw/exec');
+    let data = await response.json();
+
+   data.sort((a, b) => {
+  const pinA = ['yes', 'true', '1'].includes(String(a.pin || '').toLowerCase());
+  const pinB = ['yes', 'true', '1'].includes(String(b.pin || '').toLowerCase());
+  return pinB - pinA; // Pinned articles float to top
+});
+
+
+    loader.style.display = 'none';
+
+    data.forEach(({ title, thumbnail, content }) => {
+      const card = document.createElement('div');
+      card.className = 'article-card';
+
+      const img = document.createElement('img');
+      img.src = thumbnail;
+      img.alt = title;
+
+      const titleEl = document.createElement('div');
+      titleEl.className = 'title';
+      titleEl.textContent = title;
+
+      card.appendChild(img);
+      card.appendChild(titleEl);
+
+      card.onclick = () => {
+        const isMobile = window.innerWidth <= 768;
+        if (isMobile) articlePanel.style.display = 'none';
+        showFullArticle({ title, thumbnail, content });
+      };
+
+      card.addEventListener('touchstart', card.onclick, { passive: true });
+      articlePanel.appendChild(card);
+    });
+
+  } catch (err) {
+    loader.style.display = 'none';
+    articlePanel.innerHTML = '<p style="color:white;">Failed to load articles.</p>';
+    console.error(err);
+  }
+};
+
+
+
+function showFullArticle({ title, thumbnail, content }) {
+  const panel = document.getElementById('article-viewer-panel');
+  const contentEl = document.getElementById('article-content');
+
+  contentEl.innerHTML = `
+    <h2>${title}</h2>
+    <img src="${thumbnail}" alt="${title}" />
+    <p style="margin-top:1rem;">${content}</p>
+  `;
+
+  panel.style.display = 'flex';
+}
+
+
+const closeBtn = document.getElementById('close-article-viewer');
+
+closeBtn.addEventListener('click', () => {
+  closeArticleViewer();
+});
+
+closeBtn.addEventListener('touchstart', () => {
+  closeArticleViewer();
+}, { passive: true });
+
+function closeArticleViewer() {
+  const viewer = document.getElementById('article-viewer-panel');
+  const articlePanel = document.getElementById('article-panel');
+
+  viewer.style.display = 'none';
+
+  // Only show article list again on mobile
+  if (window.innerWidth <= 768) {
+    articlePanel.style.display = 'grid';
+  }
+}
+
+
 const shoeMesh = modelRefs['icon_shoes']?.getObjectByName('shoes2_1'); // 👈 Replace with actual mesh name
 
 if (shoeMesh) {
@@ -1247,7 +1368,7 @@ document.getElementById('email-form')?.addEventListener('submit', async (e) => {
   };
 
   try {
-    await fetch('https://script.google.com/macros/s/AKfycbyS7C0-_TlnURsSsjda4JrxEF3WT42RG2kfyOVSUeTLEFy3kK4RBU885xBBQU-SJRKD/exec', {
+    await fetch('https://script.google.com/macros/s/AKfycbyCd25zFxjqX5nnhBPgmVJfFP63RM8C9dpZ3b4zACuFhi8RWBrz32PVx-wuSbTsS9S0Fw/exec', {
       method: 'POST',
       body: JSON.stringify(data)
       
@@ -1389,6 +1510,7 @@ document.getElementById('shop-shoe-button')?.addEventListener('touchstart', () =
 function disableMainButtons() {
   ['button_portfolio', 'button_show', 'button_contact'].forEach(id => {
     document.getElementById(id)?.classList.add('disabled');
+    
   });
 }
 
@@ -1396,7 +1518,7 @@ document.querySelectorAll('.menu-btn').forEach(btn => {
   const hitboxName = btn.dataset.hitbox;
 
   const handler = () => {
-    if (['hitbox_menu', 'hitbox_guide', 'hitbox_back', 'hitbox_hood'].includes(hitboxName)) {
+    if (['hitbox_menu', 'hitbox_guide', 'hitbox_back', 'hitbox_hood', 'hitbox_robot'].includes(hitboxName)) {
       disableMainButtons();
     }
 
@@ -2294,6 +2416,21 @@ moveModelToOffsetXYZ('focus_cam', { x: 1.25, y: 0.6, z: -1.7928889989852905 }, 1
    controls.enabled = false;
 }
 
+if (obj.name === 'hitbox_robot') {
+  launchHitboxLift1();
+  launchHitboxLift2();
+  launchHitboxLift3();
+  launchHitboxLift4();
+  launchHitboxLift5();
+  stopAutoOutlinePulse();
+  moveModelToOffsetXYZ('focus_cam', { x: -1.5, y: 1.1, z: -0.5 }, 1000);
+  toggleEntityState('generator', false);
+   controls.enabled = false;
+   window.showArticles();
+disableMainButtons()
+}
+
+
 
 if (obj.name === 'hitbox_back') {
   if (inputLocked) return; // ⛔ prevent spamming
@@ -2654,7 +2791,7 @@ document.querySelectorAll('.menu-btn').forEach(btn => {
         handleHitboxClick(hitbox);
 
         // ✅ If menu or back was clicked, disable both
-        if (hitboxName === 'hitbox_menu' || hitboxName === 'hitbox_back') {
+        if (hitboxName === 'hitbox_menu' || hitboxName === 'hitbox_back'|| hitboxName === 'hitbox_robot') {
           document.getElementById('button_portfolio')?.classList.add('disabled');
           document.getElementById('button_show')?.classList.add('disabled');
            document.getElementById('button_contact')?.classList.add('disabled');
@@ -2851,16 +2988,15 @@ function updateSubmitLabel() {
   submitBtn.style.color = isValid ? '#000' : '#000';
 }
 
-// 🧬 Attach listeners
+document.addEventListener('DOMContentLoaded', () => {
+  updateSubmitLabel();
+});
+
 form.querySelectorAll('input, textarea').forEach(field => {
   field.addEventListener('input', updateSubmitLabel);
   field.addEventListener('blur', updateSubmitLabel);
   field.addEventListener('change', updateSubmitLabel);
 });
-
-// Initial update
-window.addEventListener('DOMContentLoaded', updateSubmitLabel);
-
 
 
 animate();
