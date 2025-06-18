@@ -1138,9 +1138,19 @@ if (shoesHitbox) {
 }
 
 // Automatically trigger the scene if user lands on /shoes
-if (window.location.pathname === '/shoes') {
+if (window.location.hash === '#/shoes') {
   handleShoesClick();
 }
+
+window.addEventListener('hashchange', () => {
+  const hash = window.location.hash;
+
+  if (hash === '#/shoes') {
+    handleShoesClick();
+  } else {
+    resetSceneState();
+  }
+});
 
 
     if (isMobileDevice()) {
@@ -3023,9 +3033,9 @@ function handleShoesClick() {
   // 🧠 Trigger central hitbox click logic
   handleHitboxClick(hitbox);
   // Update URL only if needed
-  if (window.location.pathname !== '/shoes') {
-    window.history.pushState({}, '', '/shoes');
-  }
+  if (window.location.hash !== '#/shoes') {
+  window.location.hash = '#/shoes';
+}
   // Focus camera on the shoes hitbox
   const camName = isMobileDevice() ? 'cam_shoesmobile' : 'cam_shoes';
   const cam = camTargets[camName];
