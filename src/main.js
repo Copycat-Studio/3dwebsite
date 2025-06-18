@@ -155,35 +155,6 @@ function moveModelToOffsetXYZ(modelName, offset = { x: 0, y: 0, z: 0 }, duration
     .start();
 }
 
-function moveModelToMatchMesh(modelName, targetModelName, targetMeshName, duration = 1000) {
-  const model = modelRefs[modelName];
-  const targetModel = modelRefs[targetModelName];
-  const mesh = targetModel?.getObjectByName(targetMeshName);
-
-  if (!model || !mesh) {
-    console.warn(`❌ Model or mesh not found: ${modelName}, ${targetMeshName}`);
-    return;
-  }
-
-  // Get world positions
-  const currentPos = new THREE.Vector3();
-  model.getWorldPosition(currentPos);
-
-  const targetPos = new THREE.Vector3();
-  mesh.getWorldPosition(targetPos);
-
-  // Calculate local offset between current and target
-  const offset = {
-    x: targetPos.x - currentPos.x,
-    y: targetPos.y - currentPos.y,
-    z: targetPos.z - currentPos.z
-  };
-
-  console.log('🚀 Offset:', offset);
-
-  moveModelToOffsetXYZ(modelName, offset, duration);
-}
-
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 const pmremGenerator = new THREE.PMREMGenerator(renderer);
@@ -273,18 +244,6 @@ loadingManager.onLoad = function () {
 const gltfLoader = new GLTFLoader(loadingManager);
 
 const rgbeLoader = new RGBELoader(loadingManager);
-
-function setWorldPosition(mesh, worldPos) {
-  if (!mesh.parent) {
-    console.warn('⚠️ Mesh has no parent — cannot convert to local');
-    return;
-  }
-
-  const localPos = new THREE.Vector3();
-  mesh.parent.worldToLocal(localPos.copy(worldPos));
-  mesh.position.copy(localPos);
-}
-
 
 loadingManager.onError = function(url) {
   console.error(`Got a problem loading: ${url}`);
@@ -635,23 +594,6 @@ function reverseAllCamClips(modelName = 'focus_cam', speed = 1) {
   });
 }
 
-function applyOrbitLimits(config) {
-  controls.minDistance = config.minDistance ?? controls.minDistance;
-  controls.maxDistance = config.maxDistance ?? controls.maxDistance;
-
-  if ('minAzimuthAngle' in config && 'maxAzimuthAngle' in config) {
-    controls.minAzimuthAngle = config.minAzimuthAngle;
-    controls.maxAzimuthAngle = config.maxAzimuthAngle;
-  } else {
-    const currentAzimuth = controls.getAzimuthalAngle();
-    const delta = Math.PI / 4;
-    controls.minAzimuthAngle = currentAzimuth - delta;
-    controls.maxAzimuthAngle = currentAzimuth + delta;
-  }
-
-  controls.update();
-}
-
 // ==== UI works =====
 
 function toggleShoeBackground(show = true) {
@@ -660,21 +602,6 @@ function toggleShoeBackground(show = true) {
   bg.classList.toggle('active', show);
 }
 
-// === Tween Helper ===
-function tweenValue(obj, key, toValue, duration, easing = TWEEN.Easing.Quadratic.Out, onUpdate, onComplete) {
-  const params = { [key]: obj[key] };
-  return new Tween(params, tweenGroup)
-    .to({ [key]: toValue }, duration)
-    .easing(easing)
-    .onUpdate(() => {
-      obj[key] = params[key];
-      onUpdate?.();
-    })
-    .onComplete(() => {
-      onComplete?.();
-    })
-    .start();
-}
 
 // === Hood Animation Controller ===
 const hoodAnim = {
@@ -912,9 +839,6 @@ function playSFX(name) {
   if (sfx.isPlaying) sfx.stop();
   sfx.play();
 }
-
-// 🚫 NO loadingManager here
-
 
 // === Camera Tweening ===
 function tweenToCamera(target) {
@@ -1253,29 +1177,61 @@ window.showArticles = async () => {
     loader.style.display = 'none';
 
     data.forEach(({ title, thumbnail, content }) => {
-      const card = document.createElement('div');
-      card.className = 'article-card';
+  const card = document.createElement('div');
+  card.className = 'article-card';
 
-      const img = document.createElement('img');
-      img.src = thumbnail;
-      img.alt = title;
+  const img = document.createElement('img');
+  img.src = thumbnail;
+  img.alt = title;
 
-      const titleEl = document.createElement('div');
-      titleEl.className = 'title';
-      titleEl.textContent = title;
+  const titleEl = document.createElement('div');
+  titleEl.className = 'title';
+  titleEl.textContent = title;
 
-      card.appendChild(img);
-      card.appendChild(titleEl);
+  card.appendChild(img);
+  card.appendChild(titleEl);
 
-      card.onclick = () => {
-        const isMobile = window.innerWidth <= 768;
-        if (isMobile) articlePanel.style.display = 'none';
-        showFullArticle({ title, thumbnail, content });
-      };
+  // === TAP vs SWIPE DETECTION ===
+  let startX = 0, startY = 0, startTime = 0;
 
-      card.addEventListener('touchstart', card.onclick, { passive: true });
-      articlePanel.appendChild(card);
-    });
+  card.addEventListener('touchstart', (e) => {
+    const touch = e.touches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+    startTime = Date.now();
+  }, { passive: true });
+
+  card.addEventListener('touchend', (e) => {
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - startX;
+    const deltaY = touch.clientY - startY;
+    const deltaTime = Date.now() - startTime;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+    const maxTapDistance = 10;
+    const maxTapDuration = 200;
+
+    if (distance < maxTapDistance && deltaTime < maxTapDuration) {
+      // ✅ Real tap
+      if (window.innerWidth <= 768) {
+        document.getElementById('article-panel').style.display = 'none';
+      }
+      showFullArticle({ title, thumbnail, content });
+    } else {
+      console.log('🧭 Swipe detected — no tap triggered');
+    }
+  }, { passive: true });
+
+  card.addEventListener('click', () => {
+    if (window.innerWidth <= 768) {
+      document.getElementById('article-panel').style.display = 'none';
+    }
+    showFullArticle({ title, thumbnail, content });
+  });
+
+  document.getElementById('article-panel').appendChild(card);
+});
+
 
   } catch (err) {
     loader.style.display = 'none';
@@ -1283,8 +1239,6 @@ window.showArticles = async () => {
     console.error(err);
   }
 };
-
-
 
 function showFullArticle({ title, thumbnail, content }) {
   const panel = document.getElementById('article-viewer-panel');
@@ -2994,5 +2948,54 @@ form.querySelectorAll('input, textarea').forEach(field => {
   field.addEventListener('change', updateSubmitLabel);
 });
 
+function addTapSwipeDetection(element, onTap, onSwipe) {
+  let startX = 0;
+  let startY = 0;
+  let startTime = 0;
+
+  element.addEventListener('touchstart', (e) => {
+    const touch = e.touches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+    startTime = Date.now();
+  }, { passive: true });
+
+  element.addEventListener('touchend', (e) => {
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - startX;
+    const deltaY = touch.clientY - startY;
+    const deltaTime = Date.now() - startTime;
+
+    const distance = Math.sqrt(deltaX ** 2 + deltaY ** 2);
+    const maxTapDistance = 8;
+    const maxTapDuration = 150;
+    const minSwipeDistance = 20;
+
+    if (distance < maxTapDistance && deltaTime < maxTapDuration) {
+      onTap?.(e);
+    } else if (distance >= minSwipeDistance) {
+      onSwipe?.(e);
+    }
+  }, { passive: true });
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const articlePanel = document.getElementById('article-panel');
+  const articleViewer = document.getElementById('article-viewer-panel');
+
+  if (articlePanel) {
+    addTapSwipeDetection(articlePanel, 
+      () => console.log('✅ TAP on article-panel'),
+      () => console.log('🧭 SWIPE on article-panel')
+    );
+  }
+
+  if (articleViewer) {
+    addTapSwipeDetection(articleViewer,
+      () => console.log('✅ TAP on article-viewer-panel'),
+      () => console.log('🧭 SWIPE on article-viewer-panel')
+    );
+  }
+});
 
 animate();
