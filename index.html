@@ -504,6 +504,7 @@ ul.hud-list li::before {
   border-top: 5px solid transparent;
   border-radius: 50%;
   animation: spin 1s linear infinite;
+  
 }
 
 .loading-text {
@@ -515,10 +516,10 @@ ul.hud-list li::before {
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
+
 
 #article-viewer-panel {
   position: fixed;
@@ -667,12 +668,11 @@ ul.hud-list li::before {
 
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-CNaMH8zG.js"></script>
+    <script type="module" crossorigin src="/assets/index-B78ipVb7.js"></script>
   </head>
 
   
   <body>
-
     <div id="custom-cursor"></div>
     <div id="custom-pointer"></div>
     <div id="shoe-bg" class="shoe-background"></div>
@@ -731,7 +731,6 @@ ul.hud-list li::before {
 
 <div id="article-panel" style="display: none;">
   <div id="article-loading" class="article-loader-overlay" style="display: none;">
-    <div class="loading-spinner"></div>
     <div class="loading-text">Loading articles...</div>
   </div>
 </div>
