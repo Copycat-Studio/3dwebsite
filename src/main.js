@@ -1131,6 +1131,18 @@ function onModelLoaded() {
     console.log('✅ All models loaded.');
     currentFocus = modelRefs['focus_cam'];
 
+    const shoesHitbox = modelRefs['shoes']?.getObjectByName('hitbox_shoes');
+if (shoesHitbox) {
+  shoesHitbox.userData.isHitbox = true;
+  shoesHitbox.callback = handleShoesClick;
+}
+
+// Automatically trigger the scene if user lands on /shoes
+if (window.location.pathname === '/shoes') {
+  handleShoesClick();
+}
+
+
     if (isMobileDevice()) {
     console.log('📱 Mobile detected — enabling outline pulse');
     startAutoOutlinePulse(); // ✅ only on mobile
@@ -2510,6 +2522,7 @@ if (obj.name === 'hitbox_speaker') {
 }
 
 if (obj.name === 'hitbox_shoes') {
+  
 
 const shoeBtnGroup = document.getElementById('shoe-button-group');
 if (shoeBtnGroup) shoeBtnGroup.style.display = 'flex';
@@ -2997,5 +3010,47 @@ window.addEventListener('DOMContentLoaded', () => {
     );
   }
 });
+
+function handleShoesClick() {
+    const model = modelRefs['shoes'];
+  const hitbox = model?.getObjectByName('hitbox_shoes');
+
+  if (!hitbox) {
+    console.warn('❌ hitbox_shoes not found');
+    return;
+  }
+
+  // 🧠 Trigger central hitbox click logic
+  handleHitboxClick(hitbox);
+  // Update URL only if needed
+  if (window.location.pathname !== '/shoes') {
+    window.history.pushState({}, '', '/shoes');
+  }
+  // Focus camera on the shoes hitbox
+  const camName = isMobileDevice() ? 'cam_shoesmobile' : 'cam_shoes';
+  const cam = camTargets[camName];
+  if (cam) {
+    tweenToCamera(cam);
+  }
+
+  // Show shoe parts
+  ['shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol'].forEach(name => {
+    const model = modelRefs[name];
+    if (model) model.visible = true;
+  });
+
+  // Show toggle buttons and captions
+  toggleShoeBackground(true);
+  const shoeBtnGroup = document.getElementById('shoe-button-group');
+  if (shoeBtnGroup) shoeBtnGroup.style.display = 'block';
+
+  controls.minDistance = .5;
+  controls.maxDistance = 1.5;
+  controls.minAzimuthAngle = -Math.PI / -3;
+  controls.maxAzimuthAngle = Math.PI / -1;
+
+  console.log('👟 Shoes scene activated');
+}
+
 
 animate();
