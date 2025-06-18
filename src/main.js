@@ -760,38 +760,6 @@ if (!isMobileDevice()) {
   });
 }
 
-function pulseHighlight(modelName, color = 0xffff00, duration = 1000) {
-  const model = modelRefs[modelName];
-  if (!model) return console.warn(`❌ Model ${modelName} not found.`);
-
-  model.traverse(child => {
-    if (child.isMesh && child.material && 'emissive' in child.material) {
-      const mat = child.material;
-      const baseColor = mat.emissive.clone();
-
-      new TWEEN.Tween({ intensity: 0 })
-        .to({ intensity: 1 }, duration / 2)
-        .easing(TWEEN.Easing.Quadratic.Out)
-        .onUpdate(obj => {
-          mat.emissive.set(color).multiplyScalar(obj.intensity);
-        })
-        .onComplete(() => {
-          new TWEEN.Tween({ intensity: 1 })
-            .to({ intensity: 0 }, duration / 2)
-            .easing(TWEEN.Easing.Quadratic.In)
-            .onUpdate(obj => {
-              mat.emissive.set(color).multiplyScalar(obj.intensity);
-            })
-            .onComplete(() => {
-              mat.emissive.copy(baseColor);
-            })
-            .start();
-        })
-        .start();
-    }
-  });
-}
-
 rgbeLoader.load('/textures/hdr.hdr', function (hdrEquirect) {
   const envMap = pmremGenerator.fromEquirectangular(hdrEquirect).texture;
 
@@ -1028,7 +996,7 @@ function logFocusPosition() {
 const modelNames = [
   'car', 'cart', 'lamp', 'hood', 'generator', 'table', 'sky', 'speaker',
   'ground', 'robot', 'sign1', 'sign2', 'menu', 'back', 'guide',
-  'background', 'logo', 'person', 'note_engine', 'details',
+  'background', 'logo', 'person', 'note_engine', 'details', 'tap',
   // shoes
    'shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol', 'shoes_bg1',
    'hitbox_sbody', 'hitbox_sbot', 'hitbox_splas', 'hitbox_scarb', 'hitbox_srubb', 'hitbox_ssol', 'hitbox_robot',
@@ -1052,6 +1020,15 @@ function loadModel(name) {
     model.name = name.toLowerCase();
     scene.add(model);
     modelRefs[model.name] = model;
+
+  if (name === 'tap') {
+    if (!isMobileDevice()) {
+      model.visible = false;
+      console.log('🚫 Hiding tap.glb on desktop');
+    } else {
+      console.log('📱 Showing tap.glb on mobile');
+    }
+  }
 
    if ([
     'engine_core', 'shoes', 'shoes_bot', 'shoes_body', 'note_engine',
@@ -1089,6 +1066,8 @@ console.log(`🌍 World position of "${model.name}":`, worldPos.toArray());
     if (gltf.animations?.length > 0) {
       model.userData.clips = gltf.animations;
     }
+
+    
 
 const playAnim = (modelName, clipNames, playSpeed = 1) => {
   const model = modelRefs[modelName];
@@ -1135,7 +1114,7 @@ const playAnim = (modelName, clipNames, playSpeed = 1) => {
     
         // ==== loop list=====
     if ([
-  'generator', 'lamp', 'guide', 'person', 'menu', 'robot', 'icon_shoes', 'note_engine',
+  'generator', 'lamp', 'guide', 'person', 'menu', 'robot', 'icon_shoes', 'note_engine', 'tap',
   'robot1', 'robot2', 'engine_corebroken', 'engine_core', 'speaker', 'cs_app', 'cs_vr'
 ].includes(name.toLowerCase()) && gltf.animations?.length > 0) {
   const mixer = new THREE.AnimationMixer(model);
@@ -1241,6 +1220,13 @@ function onModelLoaded() {
 
 //====== FINISH LOADING=====
 
+function hideTapModel() {
+  const tap = modelRefs['tap'];
+  if (tap) {
+    tap.visible = false;
+    console.log('👆 tap.glb hidden');
+  }
+}
 
 window.showArticles = async () => {
   const articlePanel = document.getElementById('article-panel');
@@ -2631,7 +2617,17 @@ toggleEntityState('robot', false);
 }
 
 function handleHitboxClick(obj) {
+
+    hideTapModel();
+
   if (!obj?.name?.startsWith('hitbox_')) return;
+
+   const tap = modelRefs['tap'];
+  if (tap) {
+    scene.remove(tap);
+    delete modelRefs['tap'];
+    console.log('🗑️ tap.glb removed from scene and memory');
+  }
 
   console.log(`🖱️ Clicked: ${obj.name}`);
 
@@ -2942,7 +2938,7 @@ function animate() {
   'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive', 'icon_ig', 'person', 'guide', 'speaker', 'shoes', 'icon_shoes',
   'engine_corebroken', 'engine_core', 'engine_top', 'engine_cover', 'engine_fan', 'engine_base',
   'shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol',
-  'cs_app', 'cs_vr', 'note_engine'
+  'cs_app', 'cs_vr', 'note_engine', 'tap'
 ].forEach(name => {
   const model = modelRefs[name];
   const mixer = model?.userData?.mixer;
