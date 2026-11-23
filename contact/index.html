@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contact | Copycat Studio</title>
+
+<meta name="title" content="Copycat Studio - 3D Visual Experiences">
+<meta name="author" content="Copycat Studio">
+<meta name="description" content="We're a studio that enhance your experience through interactive designs and visual storytelling.">
+<meta name="keywords" content="3D website, 3D modeling, 3D animation, advertising, design, entertainment, social media marketing, movies, television, art, web, graphic">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:url" content="https://www.copycat-studio.com">
+<meta name="twitter:title" content="Copycat Studio - 3D Visual Experiences">
+<meta name="twitter:description" content="We're a studio that enhance your experience through interactive designs and visual storytelling.">
+<meta name="twitter:image" content="https://copycat-studio.com/assets/preview.jpg">
+<meta property="og:description" content="We're a studio that enhance your experience through interactive designs and visual storytelling.">
+<meta property="og:title" content="Copycat Studio - 3D Visual Experiences">
+<meta property="og:description" content="We're a studio that enhance your experience through interactive designs and visual storytelling.">
+<meta property="og:image" content="https://copycat-studio.com/assets/preview.jpg">
+<meta property="og:url" content="https://www.copycat-studio.com">
+<meta property="og:type" content="website">
+
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="/favicon.ico" />
+    <style>
+      html, body {       
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        height: 100%;
+      
+ul.hud-list {
+  list-style: none; /* remove default bullets */
+  padding-left: 1.5rem;
+  font-family: 'Orbitron', sans-serif;
+  color: #00f5cc;
+}
+
+ul.hud-list li {
+  position: relative;
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+  line-height: 1.6;
+}
+
+ul.hud-list li::before {
+  content: '◉'; /* custom bullet — try ▣ ◉ ● ✦ ✱ */
+  position: absolute;
+  left: 0;
+  color: #00f5cc;
+  text-shadow: 0 0 5px #00f5cc;
+  animation: pulseBullet 1.5s infinite ease-in-out;
+}
+
+@keyframes pulseBullet {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.3); }
+}
+
+
+      .progress-bar-container {
+        cursor: none;
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 100%;
+        height: 100%;
+        background-color:wheat;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 999999;
+      }
+
+      #progress-bar {
+        width: 30%;
+        margin-top: 0.5%;
+        height: 3%;
+        transition: all 2s ease-in-out;
+  border-radius: 10px;
+  overflow: hidden;
+  background-color: black;
+      }
+    
+      
+#progress-bar::-webkit-progress-value {
+  background-color: #f89b27;
+}
+
+#progress-bar::-webkit-progress-bar {
+  background-color: #a4238a;
+}
+      
+
+      label {
+        color: black;
+        font-size: 1.5rem;
+        font-family: 'Orbitron', sans-serif;
+      }
+
+.caption-text {
+  font-size: 0.8rem;
+  color: #33012b;
+  font-family: 'Orbitron', sans-serif;
+  text-align: center;
+  opacity: 1; /* Max opacity */
+  margin-top: 0.5rem;
+}
+
+      canvas {
+        display: block;
+      }
+
+       @media (max-width: 768px) {
+    #reset-btn {
+      position: fixed;
+      top: unset !important;
+      bottom: 3rem !important;
+      right: 1rem !important;
+      left: 50%;
+      font-size: 0.9rem !important;
+      padding: 0.5rem 0.8rem !important;
+      transform: translateX(-50%);
+    }
+  }
+
+#custom-cursor {
+      position: fixed;
+      width: 84px;
+      height: 84px;
+      pointer-events: none;
+      z-index: 999999;
+      background: url('/cursor.png') no-repeat center center;
+      background-size: contain;
+      transform: translate(-50%, -50%);
+      }
+
+      #custom-pointer {
+      display: none;
+      position: fixed;
+      width: 84px;
+      height: 84px;
+      background: #00f5cc;
+      border-radius: 50%;
+      mix-blend-mode: difference;
+      pointer-events: none;
+      z-index: 9998;
+      transform: translate(-50%, -50%);
+      }
+
+      #custom-cursor.pointer {
+        background-image: url('/pointer.png');
+      }
+
+      #custom-cursor.ibeam {
+  background-image: url('/ibeam.png');
+}
+
+
+  
+      .shoe-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  /* Background color is used; the former image path did not exist. */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 9991; /* 🔑 Push below the WebGL canvas */
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none; /* Ensure it doesn’t block mouse/touch */
+}
+.shoe-background.active {
+  opacity: 1;
+}
+
+  .loading-logo {
+  width: 150px;
+  height: auto;
+  margin-bottom: 1rem; /* 👈 THIS adds space to label below */
+  animation: pulse 2s ease-in-out infinite;
+  user-select: none;
+  pointer-events: none;
+}
+
+#help-img-bottom {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 654px;
+  height: auto;
+  z-index: 9995;
+  justify-content: center;
+  pointer-events: none;
+  object-fit: contain;
+}
+
+#help-img-center {
+  position: fixed;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: auto;
+  z-index: 9995;
+  pointer-events: none;
+}
+#help-img-center img {
+  width: 100%;
+  height: auto;
+}
+
+
+.caption-subtext {
+  font-size: 1rem;
+  color: #33012b;
+  font-family: 'Orbitron', sans-serif;
+  text-align: center;
+  opacity: 1;
+  margin-top: 3rem;
+}
+
+.bottom-menu {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  gap: .4rem;
+  z-index: 9990;
+  pointer-events: auto;
+  padding: 0 1rem;
+  flex-wrap: nowrap;
+}
+
+.menu-btn {
+  width: 15vw;
+  height: auto;
+  max-width: 100px;
+  object-fit: contain;
+  cursor: none;
+  transition: transform 0.2s ease;
+  touch-action: manipulation;
+}
+
+@media (min-width: 768px) {
+  .menu-btn {
+    width: 100px;
+    height: auto;
+    pointer-events: auto;
+    cursor: none;
+  }
+}
+
+.menu-btn.disabled {
+  opacity: 0.3;
+  cursor: none !important;
+  pointer-events: none !important;
+  filter: grayscale(100%);
+}
+
+
+.menu-btn:hover {
+  transform: scale(1.1);
+}
+
+#email-form-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 100000;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+  box-sizing: border-box;
+  cursor: none !important;
+}
+
+#email-form {
+  background: #1c1c1c;
+  padding: 2rem;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 500px;
+  z-index: 100005;
+  color: white;
+  font-family: 'Orbitron', sans-serif;
+  box-shadow: 0 0 20px rgba(0, 255, 204, 0.2);
+  pointer-events: auto;
+  cursor: none;
+  touch-action: manipulation;
+}
+
+#email-form h2 {
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+  text-align: center;
+  color: #00f5cc;
+  cursor: none;
+}
+
+#email-form label {
+  display: block;
+  margin: 0.5rem 0 0.2rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: #fff;
+  cursor: none;
+}
+
+#email-form input,
+#email-form textarea {
+  z-index: 100006;
+  width: 100%;
+  padding: 0.7rem;
+  border-radius: 6px;
+  border: none;
+  margin-bottom: 0.8rem;
+  font-size: 1rem;
+  font-family: default;
+  background: #2b2b2b;
+  color: #fff;
+  box-sizing: border-box;
+  cursor: none;
+}
+
+
+#email-form textarea {
+  height: 6rem;
+  resize: vertical;
+}
+
+#email-form .form-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  cursor: none;
+}
+
+#email-form button {
+  flex: 1;
+  padding: 0.8rem;
+  font-size: 1rem;
+  font-family: inherit;
+  background-color: #00f5cc;
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+  cursor: none;
+}
+
+#email-form button:hover {
+  background-color: #00cfa4;
+  font-family: inherit;
+}
+
+#email-form button#form-cancel {
+  background-color: #888;
+  color: rgb(0, 0, 0);
+  font-family: inherit;
+}
+
+#email-form button#form-cancel:hover {
+  background-color: #555;
+}
+
+@media (max-width: 480px) {
+  #email-form {
+    padding: 1.5rem;
+    font-size: 0.9rem;
+  }
+
+  #email-form h2 {
+    font-size: 1.2rem;
+  }
+
+  #email-form button {
+    font-size: 0.9rem;
+  }
+}
+
+
+@media (max-width: 768px) {
+  .bottom-menu {
+    bottom: 2rem;
+  }
+}
+
+
+@media (max-width: 768px) {
+  #help-img-center {
+    width: 98vw;
+    height: auto;
+  }
+  #help-img-bottom{
+    width: 98vw;
+    height: auto;
+    bottom: 4.3rem;
+  }
+}
+
+@media (max-width: 768px) {
+  #custom-cursor,
+  #custom-pointer,
+  .caption-text {
+    display: none !important;
+  }
+}
+
+#article-panel {
+  position: fixed;
+  top: 10vh;
+  right: 5vw;
+  width: 40vw;
+  height: 80vh;
+  background: rgba(0, 0, 0, 0.85);
+  border-left: 3px solid #00f5cc;
+  box-shadow: -2px 0 12px rgba(0, 255, 204, 0.3);
+  padding: 1rem;  
+  overflow-y: auto;
+  z-index: 9999;
+  font-family: 'Orbitron', sans-serif;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: 40vh;
+  padding-right: 1rem;
+  gap: 1rem;
+  box-sizing: border-box;
+  scroll-behavior: smooth;
+  cursor: none;
+  align-content: flex-start;
+  justify-content: flex-start;
+}
+
+#article-panel::after {
+  content: '';
+  width: 1rem;
+  display: block;
+  height: 2rem;
+}
+
+/* Scrollbar style */
+#article-panel::-webkit-scrollbar {
+  width: 12px;
+  padding-right: 1rem;
+}
+#article-panel::-webkit-scrollbar-thumb {
+  background-color: #00f5cc;
+  border-radius: 4px;
+}
+#article-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.article-card {
+  background-color: rgb(34, 34, 34);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: -2px 0 12px rgba(0, 255, 204, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem;
+  width: 100%;
+  height: auto;
+  box-sizing: border-box;
+  padding-block: 1rem;
+}
+
+.article-card img {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1 / 1 !important;
+  object-fit: cover;
+  box-sizing: border-box;
+  border-radius: 4px;
+}
+
+.article-card .title {
+  margin-top: 0.3rem;
+  color: #00f5cc;
+  font-size: 0.9rem;
+  width: 100%;
+  text-align: center;
+  padding: 0.3rem;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.article-loader-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+}
+
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 5px solid #00f5cc;
+  border-top: 5px solid transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  
+}
+
+.loading-text {
+  margin-top: 1rem;
+  font-family: 'Orbitron', sans-serif;
+  color: #00f5cc;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+
+#article-viewer-panel {
+  position: fixed;
+  top: 10vh;
+  left: 5vw;
+  width: 50vw;
+  height: 80vh;
+  background: rgba(0, 0, 0, 0.95);
+  border-right: 3px solid #00f5cc;
+  box-shadow: 2px 0 12px rgba(0, 255, 204, 0.3);
+  z-index: 9998;
+  padding: 1rem;
+  box-sizing: border-box;
+  font-family: 'Orbitron', sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  color: #00f5cc;
+  cursor: none;
+}
+
+#article-content {
+  overflow-y: auto;
+  flex-grow: 1;
+  padding-right: 1rem;
+  padding-left: 1rem;
+  direction: rtl;
+  text-align: left;
+  font-family: system-ui, sans-serif;  /* Default for all text */
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #ccc;
+}
+
+/* 🟣 Article main title (injected <h2>) */
+#article-content h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.4rem;
+  margin-bottom: 1rem;
+  color: #00f5cc;
+}
+
+/* 🟢 Sub-headings inside content */
+#article-content h1{
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.1rem;
+  margin: 1rem 0 0.5rem;
+}
+
+
+#article-content * {
+  direction: ltr;                 
+}
+
+#article-content::-webkit-scrollbar {
+  width: 12px;
+}
+#article-content::-webkit-scrollbar-thumb {
+  background-color: #00f5cc;
+  border-radius: 4px;
+}
+#article-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#article-viewer-panel img {
+  width: 100%;
+  max-height: 40vh;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+
+#close-article-viewer {
+  align-self: flex-end;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #00f5cc;
+  cursor: none;
+  font-family: inherit;
+}
+
+@media (max-width: 768px) {
+  #article-panel {
+    grid-template-columns: 1fr;
+    grid-auto-rows: 40vh;
+    gap: 1rem;
+    width: 90vw;
+    height: 80vh;
+    top: 5vh;
+    left: 5vw;
+    right: 5vw;
+    bottom: 15vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 1rem;
+    box-sizing: border-box;
+    border-left: none;
+  }
+
+  .article-loader-overlay {
+  pointer-events: none; 
+}
+
+#article-loading {
+  display: none;
+  pointer-events: none;
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 9999; /* stays on top only when visible */
+}
+
+
+  .article-card {
+   pointer-events: auto;
+  cursor: pointer;
+  z-index: 1;
+  position: relative;
+  touch-action: manipulation;
+  width: 100%;
+}
+
+  #article-viewer-panel {
+    position: fixed;
+    width: 90vw;
+    height: 80vh;
+    top: 5vh;
+    left: 5vw;
+    right: 5vw;
+    bottom: 15vh;
+    z-index: 9999;
+    display: none;
+    flex-direction: column;
+    background: rgba(0, 0, 0, 0.95);
+    padding: 1rem;
+    box-sizing: border-box;
+    border-right: none;
+  }
+}
+
+
+
+
+
+
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index-C4DFsTeO.js"></script>
+  </head>
+
+  
+  <body>
+    <div id="custom-cursor"></div>
+    <div id="custom-pointer"></div>
+    <div id="shoe-bg" class="shoe-background"></div>
+
+
+<div id="shoe-button-group" style="display: none; position: fixed; bottom: 5.5rem; left: 50%;
+            transform: translateX(-50%); display: none; flex-direction: row; gap: 0.5rem; z-index: 9995;">
+
+  <img id="toggle-shoe-button" src="/textures/button_toggle1.png" 
+       style="width: 15vw; max-width: 100px; height: auto; cursor: none;" />
+
+  <img id="shop-shoe-button" src="/textures/button_shop.png"
+       style="width: 15vw; max-width: 100px; height: auto; cursor: none;" />
+
+</div>
+
+
+
+
+   <div id="option-menu" class="bottom-menu">
+<img id="button_speaker" class="menu-btn" data-hitbox="hitbox_speaker" src="/textures/button_mute1.png" />
+<img id="button_portfolio" class="menu-btn" data-hitbox="hitbox_menu" src="/textures/button_portfolio.png" />
+<img id="button_show" class="menu-btn" data-hitbox="hitbox_back" src="/textures/button_show.png" />
+<img id="button_contact" class="menu-btn" data-hitbox="hitbox_table" src="/textures/button_contact.png" />
+<img id="button_back" class="menu-btn" data-action="reset" src="/textures/button_back.png" />
+<img id="button_extra" class="menu-btn" data-action="extra" src="/textures/button_help.png" />
+
+</div>
+
+
+
+<div class="progress-bar-container">
+        <img src="/logo.png" alt="Loading Logo" class="loading-logo" />
+        <label for="progress-bar" id="progress-label">preparing...</label>
+        <progress id="progress-bar" value="0" max="100"></progress>
+        <p id="progress-caption" class="caption-text">Waiting for assets...</p>
+        <p id="progress-subcaption" class="caption-subtext">open this website at desktop, to get full experience</p>
+    </div>
+
+
+
+<div id="hood-caption" style="
+  position: fixed;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.65);
+  color: #00f5cc;
+  padding: 4px 8px;
+  font-size: 10px;
+  border-radius: 4px;
+  font-family: 'Orbitron', sans-serif;
+  z-index: 9999;
+  display: none;
+">
+  click to open
+</div>
+
+<div id="article-panel" style="display: none;">
+  <div id="article-loading" class="article-loader-overlay" style="display: none;">
+    <div class="loading-text">Loading articles...</div>
+  </div>
+</div>
+
+<div id="article-viewer-panel" style="display: none;">
+  <button id="close-article-viewer">✖</button>
+  <div id="article-content"></div>
+</div>
+
+
+
+
+  <img id="help-img-bottom" src="/textures/help1.png" alt="Help Bottom" style="display: none;" />
+<picture id="help-img-center" style="display: none;">
+  <source media="(max-width: 768px)" srcset="/textures/help2_mobile.png" />
+  <source media="(min-width: 769px)" srcset="/textures/help2.png" />
+  <img src="/textures/help2.png" alt="Help Center" style="width: 100%; height: auto;" />
+</picture>
+
+<div id="email-form-overlay">
+  <form id="email-form">
+    <h2>📬 Contact Form</h2>
+<p style="font-size: 0.6rem; color: #aaa; margin-bottom: 1rem; text-align: center;">
+  we will reach you as soon as possible<br />
+  or just leave us a note with anything you want to share.
+</p>
+
+
+    <label for="name">Name</label>
+    <input name="name" id="name" type="text" required />
+
+    <label for="email">Email</label>
+    <input name="email" id="email" type="email" required/>
+
+    <label for="phone">Phone</label>
+    <input name="phone" id="phone" type="text" required/>
+
+    <label for="note">Note</label>
+    <textarea name="note" id="note" required></textarea>
+
+    <div class="form-actions">
+      <button type="submit" id="submit-btn">Send</button>
+      <button type="button" id="form-cancel">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    window.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('#email-form input, #email-form textarea, #email-form button')
+        .forEach(el => {
+          el.style.cursor = 'auto';
+          el.style.touchAction = 'manipulation';
+          el.style.pointerEvents = 'auto';
+        });
+    });
+  }
+</script>
+
+  </body>
+</html>
