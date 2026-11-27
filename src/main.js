@@ -1,7 +1,11 @@
+import { MenuRingLabels } from './menu-ring-labels.js';
+import './hand-play.css';
+import { createSceneRouter, HITBOX_ROUTES } from './routes.js';
 // === Import Three.js Modules ===
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { Tween, Easing, Group } from '@tweenjs/tween.js';
 const TWEEN = {
@@ -14,6 +18,9 @@ const TWEEN = {
 
 const tweenGroup = new Group();
 const scene = new THREE.Scene();
+const menuTouchMedia = window.matchMedia('(hover: none), (pointer: coarse)');
+const menuRingLabels = new MenuRingLabels(scene, () => menuTouchMedia.matches || isMobileDevice());
+window.addEventListener('pointerout', e => { if (!e.relatedTarget) menuRingLabels.setHover(null); });
 const clock = new THREE.Clock();
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
 scene.add(camera);
@@ -27,8 +34,7 @@ const animationSpeeds = {
   engine_corebroken: 0.4,
   speaker: 2.1,
   icon_shoes: .3,
-  cs_app: .4,
-  cs_vr: .4
+
 
 };
 
@@ -69,15 +75,11 @@ document.querySelectorAll('input, textarea').forEach(el => {
 
 
 // === debug switch ===
-const DEBUG = true; 
+const DEBUG = false;
 window.DEBUG = false; 
 const hitboxOriginalPositions = {};
 
-if (!DEBUG) {
-  console.log = () => {};
-  console.warn = () => {};
-  console.error = () => {};
-}
+const debugLog = (...args) => { if (DEBUG) console.log(...args); };
 
 function updateDebugMarker() {
   if (currentFocus) {
@@ -113,7 +115,7 @@ function moveHitboxY(name, toOffsetY = 500, duration = 0) {
 
   // Skip if already at target
   if (Math.abs(currentY - targetY) < 1e-2) {
-    console.log(`⛔ "${name}" already at Y offset.`);
+    debugLog(`⛔ "${name}" already at Y offset.`);
     return;
   }
 
@@ -163,7 +165,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 
 renderer.toneMapping = THREE.NoToneMapping;
 renderer.toneMappingExposure = 1;               
-renderer.outputEncoding = THREE.sRGBEncoding;      
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 //BACKGROUND
 renderer.setClearColor(0x17021F);
@@ -241,7 +243,6 @@ loadingManager.onLoad = function () {
   }, 300);
 }
 
-const gltfLoader = new GLTFLoader(loadingManager);
 
 const rgbeLoader = new RGBELoader(loadingManager);
 
@@ -250,10 +251,7 @@ loadingManager.onError = function(url) {
 } 
 
 
-const loader = new GLTFLoader(loadingManager);
-loader.load('/textures/my_bg.jpg', texture => {
-  scene.background = texture;
-});
+const loader = new GLTFLoader(loadingManager).setMeshoptDecoder(MeshoptDecoder);
 const modelRefs = {};
 const camTargets = {};
 
@@ -265,7 +263,7 @@ const captionMap = {
   'hitbox_back': 'Product<br>Showcase',
   'hitbox_guide': 'Thanks to!',
   'hitbox_robot': 'What News?',
-  'hitbox_app': 'COMING<br>SOON',
+  'hitbox_app': 'Hand<br>Playground',
   'hitbox_reel': 'Showreel',
   'hitbox_vr': 'COMING<br>SOON',
   'hitbox_ig': '@copycatstudio Instagram',
@@ -411,7 +409,11 @@ let isRaycastEnabled = true;
 /// ==== reset setting ====
 
 function resetSceneState() {
-  console.log('🔁 Reset triggered (button or ESC)...');
+  sceneRouter.navigate('/');
+}
+
+function resetSceneStateCore() {
+  debugLog('🔁 Reset triggered (button or ESC)...');
 
 const articlePanel = document.getElementById('article-panel');
   if (articlePanel) {
@@ -430,7 +432,7 @@ const articlePanel = document.getElementById('article-panel');
 controls.maxAzimuthAngle = Infinity;
 controls.minDistance = defaultControlsRange.minDistance;
 controls.maxDistance = defaultControlsRange.maxDistance;
-console.log('🔄 Reset controls zoom limits');
+debugLog('🔄 Reset controls zoom limits');
 
 
   playSFX('swoosh');
@@ -451,7 +453,7 @@ Object.entries(modelRefs).forEach(([name, model]) => {
 
   model.visible = !visibilityLock[name];
   if (visibilityLock[name]) {
-    console.log(`🔒 Locked: ${name} remains hidden`);
+    debugLog(`🔒 Locked: ${name} remains hidden`);
   }
 });
 
@@ -504,7 +506,7 @@ shoeToggleState = false;
     hitbox.name = 'hitbox_hood';
     hitbox.userData.isHitbox = true;
     hood.add(hitbox);
-    console.log('♻️ Re-added hitbox_hood');
+    debugLog('♻️ Re-added hitbox_hood');
   }
 
   // 🎛️ Reset menu model and icons
@@ -546,12 +548,12 @@ shoeToggleState = false;
 
 
     // 🕹️ Hide menu icons
-    ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'shoes', 'icon_shoes', 'icon_ig', 'cs_app', 'cs_vr', 'icon_wa', 'icon_email'].forEach(iconName => {
+    ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'shoes', 'icon_shoes', 'icon_ig', 'icon_wa', 'icon_email'].forEach(iconName => {
       const icon = modelRefs[iconName];
       if (icon) icon.visible = false;
     });
 
-    console.log('🔁 Menu reset completed');
+    debugLog('🔁 Menu reset completed');
   }
 }
 
@@ -559,9 +561,9 @@ shoeToggleState = false;
 window.THREE = THREE;
 window.modelRefs = modelRefs;
 window.listModels = () => {
-  console.log('📦 Loaded Models:');
+  debugLog('📦 Loaded Models:');
   Object.entries(modelRefs).forEach(([name, model], i) => {
-    console.log(`${i + 1}. ${name}`, model);
+    debugLog(`${i + 1}. ${name}`, model);
   });
 };
 
@@ -589,7 +591,7 @@ function reverseAllCamClips(modelName = 'focus_cam', speed = 1) {
       action.paused = false;
       action.play();
       action.time = action.getClip().duration; // 🧠 Start at end
-      console.log(`⏪ Reversing "${clip.name}" on "${modelName}"`);
+      debugLog(`⏪ Reversing "${clip.name}" on "${modelName}"`);
     }
   });
 }
@@ -640,7 +642,7 @@ function playHoodClip(clipName, speed = 1) {
   hoodAnim.action = action;
   hoodAnim.clip = clip;
 
-  console.log(`🎞️ Playing "${clipName}" @ ${speed}x speed`);
+  debugLog(`🎞️ Playing "${clipName}" @ ${speed}x speed`);
 }
 
 
@@ -674,58 +676,12 @@ function isMobileDevice() {
   return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
-if (!isMobileDevice()) {
-  const customCursor = document.getElementById('custom-cursor');
-  const customPointer = document.getElementById('custom-pointer');
-
-  document.addEventListener('mousemove', e => {
-    customCursor.style.left = `${e.clientX}px`;
-    customCursor.style.top = `${e.clientY}px`;
-
-    customPointer.style.left = `${e.clientX}px`;
-    customPointer.style.top = `${e.clientY}px`;
-  });
-}
-
-rgbeLoader.load('/textures/hdr.hdr', function (hdrEquirect) {
-  const envMap = pmremGenerator.fromEquirectangular(hdrEquirect).texture;
-
-  originalEnvMap = envMap;
-
-  scene.environment = envMap;
+rgbeLoader.load('/textures/hdr.hdr', (hdrEquirect) => {
+  originalEnvMap = pmremGenerator.fromEquirectangular(hdrEquirect).texture;
+  scene.environment = originalEnvMap;
   scene.background = null;
-
   hdrEquirect.dispose();
-
-  console.log('🔥 HDR loaded → starting warm-up cycle...');
-
-  // 🔥 Turn HDR OFF
-  setTimeout(() => {
-    scene.environment = null;
-    scene.background = null;
-
-    // 🔁 Turn HDR ON
-    setTimeout(() => {
-      scene.environment = originalEnvMap;
-      scene.background = null;
-
-      renderer.compile(scene, camera); // 🧠 optional: pre-compile shaders
-      console.log('✅ HDR pre-warmed and ready');
-    }, 100);
-  }, 100);
-});
-
-const hdrEnvs = {};
-const hdrLoader = new RGBELoader(loadingManager);
-
-hdrLoader.load('/textures/hdr.hdr', (tex) => {
-  hdrEnvs.hdrA = pmremGenerator.fromEquirectangular(tex).texture;
-  tex.dispose();
-});
-
-hdrLoader.load('/textures/shoes_hdr.hdr', (tex) => {
-  hdrEnvs.hdrB = pmremGenerator.fromEquirectangular(tex).texture;
-  tex.dispose();
+  pmremGenerator.dispose();
 });
 
 function throttle(func, limit) {
@@ -809,7 +765,7 @@ function focusOrbitOnModel(modelName) {
   model.getWorldPosition(pos);
   controls.target.copy(pos);
   controls.update();
-  console.log(`🧲 Orbit center updated to model "${modelName}"`);
+  debugLog(`🧲 Orbit center updated to model "${modelName}"`);
 }
 
 // === AUDIO SECTION ===
@@ -859,7 +815,7 @@ new TWEEN.Tween(dummy.position, tweenGroup)
     .easing(TWEEN.Easing.Quadratic.InOut)
     .onUpdate(() => {
       camera.position.copy(dummy.position); // ✅ Smoothly apply position
-      // console.log('📍 Tween cam pos:', camera.position.toArray());
+      // debugLog('📍 Tween cam pos:', camera.position.toArray());
     })
     .start();
 
@@ -872,7 +828,7 @@ new TWEEN.Tween(dummy.position, tweenGroup)
     .to({ t: 1 }, 1000)
     .easing(TWEEN.Easing.Quadratic.InOut)
     .onUpdate(() => {
-      THREE.Quaternion.slerp(startQuat, endQuat, dummy.quaternion, rotTween.t);
+      dummy.quaternion.slerpQuaternions(startQuat, endQuat, rotTween.t);
       camera.quaternion.copy(dummy.quaternion); // ✅ Apply smoothed rotation
     })
     .start();
@@ -899,7 +855,7 @@ function cameraFocusToMesh(modelName, meshName) {
   controls.target.copy(pos);
   controls.update();
 
-  console.log(`🎯 Focused on ${meshName} inside ${modelName}`);
+  debugLog(`🎯 Focused on ${meshName} inside ${modelName}`);
 }
 
 
@@ -907,12 +863,12 @@ function logFocusPosition() {
   if (currentFocus) {
     const pos = new THREE.Vector3();
     currentFocus.getWorldPosition(pos);
-    console.log(`📍 currentFocus: ${currentFocus.name} @`, pos.toArray());
+    debugLog(`📍 currentFocus: ${currentFocus.name} @`, pos.toArray());
   } else {
-    console.log('⚠️ No currentFocus set.');
+    debugLog('⚠️ No currentFocus set.');
   }
 
-  console.log('🎯 OrbitControls.target @', controls.target.toArray());
+  debugLog('🎯 OrbitControls.target @', controls.target.toArray());
 }
 
 
@@ -922,7 +878,7 @@ const modelNames = [
   'ground', 'robot', 'sign1', 'sign2', 'menu', 'back', 'guide',
   'background', 'logo', 'person', 'note_engine', 'details', 'tap',
   // shoes
-   'shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol', 'shoes_bg1',
+   'shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol', 'shoes_bg',
    'hitbox_sbody', 'hitbox_sbot', 'hitbox_splas', 'hitbox_scarb', 'hitbox_srubb', 'hitbox_ssol', 'hitbox_robot',
    //cam
   'cam_engine', 'cam_guide','cam_custom','cam_menu', 'cam_hood', 'cam_shoes', 'cam_robot',
@@ -935,7 +891,6 @@ const modelNames = [
     //icon 
   'icon_shoes', 'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive', 'icon_ig',
   'engine_corebroken','engine_core', 'engine_top', 'engine_cover', 'engine_fan', 'engine_base',
-  'cs_vr', 'cs_app'
 ];
 
 function loadModel(name) {
@@ -944,13 +899,14 @@ function loadModel(name) {
     model.name = name.toLowerCase();
     scene.add(model);
     modelRefs[model.name] = model;
+    menuRingLabels.attach(model.name, model);
 
   if (name === 'tap') {
     if (!isMobileDevice()) {
       model.visible = false;
-      console.log('🚫 Hiding tap.glb on desktop');
+      debugLog('🚫 Hiding tap.glb on desktop');
     } else {
-      console.log('📱 Showing tap.glb on mobile');
+      debugLog('📱 Showing tap.glb on mobile');
     }
   }
 
@@ -975,17 +931,16 @@ model.traverse(child => {
 });
     
     // 🔒 Hide icon_* models on load
-if (['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'icon_shoes', 'icon_ig', 'cs_app', 'cs_vr', 'icon_wa', 'icon_email'].includes(model.name)) {
+if (['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'icon_shoes', 'icon_ig', 'icon_wa', 'icon_email'].includes(model.name)) {
   model.visible = false;
-  console.log(`🙈 Hiding icon model: ${model.name}`);
+  debugLog(`🙈 Hiding icon model: ${model.name}`);
 }
 
 
     const worldPos = new THREE.Vector3();
 model.getWorldPosition(worldPos);
-console.log(`🌍 World position of "${model.name}":`, worldPos.toArray());
+debugLog(`🌍 World position of "${model.name}":`, worldPos.toArray());
 
-    onModelLoaded();
 
     if (gltf.animations?.length > 0) {
       model.userData.clips = gltf.animations;
@@ -1018,7 +973,7 @@ const playAnim = (modelName, clipNames, playSpeed = 1) => {
     action.timeScale = playSpeed;
     action.reset().play();
 
-    console.log(`🔁 Playing "${clipName}" on "${modelName}" @ ${playSpeed}x (${modelName === 'robot' ? 'REPEAT' : 'PINGPONG'})`);
+    debugLog(`🔁 Playing "${clipName}" on "${modelName}" @ ${playSpeed}x (${modelName === 'robot' ? 'REPEAT' : 'PINGPONG'})`);
   });
 };
 
@@ -1039,7 +994,7 @@ const playAnim = (modelName, clipNames, playSpeed = 1) => {
         // ==== loop list=====
     if ([
   'generator', 'lamp', 'guide', 'person', 'menu', 'robot', 'icon_shoes', 'note_engine', 'tap',
-  'robot1', 'robot2', 'engine_corebroken', 'engine_core', 'speaker', 'cs_app', 'cs_vr'
+  'robot1', 'robot2', 'engine_corebroken', 'engine_core', 'speaker'
 ].includes(name.toLowerCase()) && gltf.animations?.length > 0) {
   const mixer = new THREE.AnimationMixer(model);
   const loopAction = mixer.clipAction(gltf.animations[0]);
@@ -1059,7 +1014,7 @@ const playAnim = (modelName, clipNames, playSpeed = 1) => {
 
   model.userData.mixer = mixer;
 
-  console.log(`🔁 Playing "${name}" loop @ ${speed}x (${name.toLowerCase() === 'robot' ? 'REPEAT' : 'PINGPONG'})`);
+  debugLog(`🔁 Playing "${name}" loop @ ${speed}x (${name.toLowerCase() === 'robot' ? 'REPEAT' : 'PINGPONG'})`);
 }
 
 
@@ -1074,15 +1029,17 @@ const playAnim = (modelName, clipNames, playSpeed = 1) => {
     child.receiveShadow = true;
     const childWorld = new THREE.Vector3();
     child.getWorldPosition(childWorld);
-    console.log(`🧱 Mesh: ${child.name} → 🌍`, childWorld.toArray());
+    debugLog(`🧱 Mesh: ${child.name} → 🌍`, childWorld.toArray());
 
     // 🔍 Shape Key Debug Log
     if (child.morphTargetInfluences) {
-      console.log('🧬 Morph Target Mesh:', child.name);
-      console.log('🔑 Shape Keys:', child.morphTargetDictionary);
+      debugLog('🧬 Morph Target Mesh:', child.name);
+      debugLog('🔑 Shape Keys:', child.morphTargetDictionary);
     }
 
     if (child.name.startsWith('hitbox_')) {
+      child.castShadow = false;
+      child.receiveShadow = false;
       child.material.transparent = true;
       child.material.opacity = 0;
       child.renderOrder = 999;
@@ -1100,20 +1057,7 @@ window.camera = camera;
 window.tweenToCamera = tweenToCamera;
 
 
-    if (name === 'ground') {
-      const initMainCam = () => {
-        const cam = camTargets['activecam'];
-        if (cam) {
-          camera.position.copy(cam.position);
-          camera.quaternion.copy(cam.quaternion);
-          mainCamTransform = cam;
-          controls.enabled = true;
-        } else {
-          setTimeout(initMainCam, 100);
-        }
-      };
-      initMainCam();
-    }
+    onModelLoaded();
   });
 }
 
@@ -1128,37 +1072,19 @@ let loadedCount = 0;
 function onModelLoaded() {
   loadedCount++;
   if (loadedCount === modelNames.length) {
-    console.log('✅ All models loaded.');
+    debugLog('✅ All models loaded.');
     currentFocus = modelRefs['focus_cam'];
 
-    const shoesHitbox = modelRefs['shoes']?.getObjectByName('hitbox_shoes');
-if (shoesHitbox) {
-  shoesHitbox.userData.isHitbox = true;
-  shoesHitbox.callback = handleShoesClick;
-}
-
-// Automatically trigger the scene if user lands on /shoes
-if (window.location.hash === '#/shoes') {
-  handleShoesClick();
-}
-
-window.addEventListener('hashchange', () => {
-  const hash = window.location.hash;
-
-  if (hash === '#/shoes') {
-    handleShoesClick();
-  } else {
-    resetSceneState();
-  }
-});
+    scene.updateMatrixWorld(true);
+    mainCamTransform = camTargets['activecam'] || mainCamTransform;
+    if (mainCamTransform) {
+      mainCamTransform.getWorldPosition(camera.position);
+      mainCamTransform.getWorldQuaternion(camera.quaternion);
+    }
+    captureSceneBaseline();
+    sceneRouter.start();
 
 
-    if (isMobileDevice()) {
-    console.log('📱 Mobile detected — enabling outline pulse');
-    startAutoOutlinePulse(); // ✅ only on mobile
-  } else {
-    console.log('🖥️ Desktop detected — outline pulse skipped');
-  }
   
   }
 }
@@ -1170,7 +1096,7 @@ function hideTapModel() {
   const tap = modelRefs['tap'];
   if (tap) {
     tap.visible = false;
-    console.log('👆 tap.glb hidden');
+    debugLog('👆 tap.glb hidden');
   }
 }
 
@@ -1240,7 +1166,7 @@ window.showArticles = async () => {
       }
       showFullArticle({ title, thumbnail, content });
     } else {
-      console.log('🧭 Swipe detected — no tap triggered');
+      debugLog('🧭 Swipe detected — no tap triggered');
     }
   }, { passive: true });
 
@@ -1339,6 +1265,7 @@ document.getElementById('email-form')?.addEventListener('submit', async (e) => {
     alert('📬 Message sent!');
     form.reset();
     document.getElementById('email-form-overlay').style.display = 'none';
+    if (sceneRouter.current === '/contact') resetSceneState();
     
 const canvas = document.querySelector('canvas');
 if (canvas) canvas.style.pointerEvents = 'auto';
@@ -1357,6 +1284,7 @@ document.getElementById('form-cancel')?.addEventListener('click', () => {
  isFormOpen = false;
 
 document.getElementById('email-form-overlay').style.display = 'none';
+    if (sceneRouter.current === '/contact') resetSceneState();
 document.querySelector('canvas').style.pointerEvents = 'auto';
 
 controls.enabled = true;
@@ -1365,6 +1293,7 @@ document.getElementById('form-cancel')?.addEventListener('touchstart', () => {
  isFormOpen = false;
 
 document.getElementById('email-form-overlay').style.display = 'none';
+    if (sceneRouter.current === '/contact') resetSceneState();
 document.querySelector('canvas').style.pointerEvents = 'auto';
 
 controls.enabled = true;
@@ -1414,7 +1343,7 @@ document.getElementById('toggle-shoe-button')?.addEventListener('click', () => {
     btn.src = '/textures/button_toggle1.png';
   }
 
-  console.log(`👟 Shoe mode: ${shoeToggleState ? 'SPLAS' : 'SBODY'}`);
+  debugLog(`👟 Shoe mode: ${shoeToggleState ? 'SPLAS' : 'SBODY'}`);
 });
 
 document.getElementById('toggle-shoe-button')?.addEventListener('touchstart', () => {
@@ -1456,7 +1385,7 @@ document.getElementById('toggle-shoe-button')?.addEventListener('touchstart', ()
     btn.src = '/textures/button_toggle1.png';
   }
 
-  console.log(`👟 Shoe mode (TOUCH): ${shoeToggleState ? 'SPLAS' : 'SBODY'}`);
+  debugLog(`👟 Shoe mode (TOUCH): ${shoeToggleState ? 'SPLAS' : 'SBODY'}`);
 }, { passive: true });
 
 
@@ -1503,7 +1432,7 @@ muteBtn?.addEventListener('click', () => {
 
   triggerHitboxClick('hitbox_speaker');
 
-  console.log(`🔊 Mute button toggled: ${isMuted ? 'MUTED' : 'UNMUTED'}`);
+  debugLog(`🔊 Mute button toggled: ${isMuted ? 'MUTED' : 'UNMUTED'}`);
 });
 
 
@@ -1669,7 +1598,7 @@ Object.entries(sfxFiles).forEach(([name, path]) => {
 const waitForHood = setInterval(() => {
   if (modelRefs['hood']) {
     clearInterval(waitForHood);
-    console.log('✅ Hood model loaded. Ready for animation.');
+    debugLog('✅ Hood model loaded. Ready for animation.');
   }
 }, 100);
 
@@ -1727,13 +1656,14 @@ window.logWorldPos = (model, mesh) => {
   if (obj) {
     const pos = new THREE.Vector3();
     obj.getWorldPosition(pos);
-    console.log(`🌍 ${model}/${mesh} world pos:`, pos.toArray());
+    debugLog(`🌍 ${model}/${mesh} world pos:`, pos.toArray());
   } else {
     console.warn('❌ mesh not found');
   }
 };
 
 window.addEventListener('keydown', (e) => {
+  if (handPlayActive) return;
   if (e.key === 'Escape') {
     resetSceneState();
   }
@@ -1773,7 +1703,7 @@ function hideUntilRemoved(modelNameA, modelNameB) {
       clearInterval(checkInterval);
       visibilityLock[modelNameA] = false; // 🔓 Unlock
       modelA.visible = true;
-      console.log(`👁️ ${modelNameA} is now visible after ${modelNameB} was removed`);
+      debugLog(`👁️ ${modelNameA} is now visible after ${modelNameB} was removed`);
     }
   }, 100);
 }
@@ -1801,7 +1731,7 @@ function playLoopingAnimation(modelName) {
 
   model.userData.action = action;
 
-  console.log(`▶️ Playing ${modelName} @ ${speed}x (${modelName === 'robot' ? 'REPEAT' : 'PINGPONG'})`);
+  debugLog(`▶️ Playing ${modelName} @ ${speed}x (${modelName === 'robot' ? 'REPEAT' : 'PINGPONG'})`);
 }
 
 
@@ -1809,7 +1739,7 @@ function stopLoopingAnimation(modelName) {
   const action = modelRefs[modelName]?.userData?.action;
   if (action) {
     action.stop();
-    console.log(`⏹️ Stopped ${modelName}`);
+    debugLog(`⏹️ Stopped ${modelName}`);
   }
 }
 
@@ -1832,7 +1762,7 @@ function toggleEntityState(entityName, forceState = null) {
   toggleState[entityName] = shouldBeOn;
 
   if (shouldBeOn) {
-    console.log(`🔊 ${entityName} ON`);
+    debugLog(`🔊 ${entityName} ON`);
     playLoopingAnimation(entityName);
     enableProximitySound(entityName);
 
@@ -1845,7 +1775,7 @@ function toggleEntityState(entityName, forceState = null) {
       sfx.setVolume(entry.maxVol ?? 1.0); // restore volume
     }
   } else {
-    console.log(`🔇 ${entityName} OFF`);
+    debugLog(`🔇 ${entityName} OFF`);
     stopLoopingAnimation(entityName);
     disableProximitySound(entityName);
 
@@ -1870,7 +1800,7 @@ function enableProximitySound(name) {
   const entry = proximitySounds.find(p => p.name === name);
   if (entry) {
     entry.enabled = true;
-    console.log(`🔊 Sound "${name}" enabled`);
+    debugLog(`🔊 Sound "${name}" enabled`);
   }
 }
 
@@ -1884,7 +1814,7 @@ function disableProximitySound(name) {
   const sfx = sfxMap[entry.sound];
   if (sfx?.isPlaying) {
     sfx.setVolume(0); // 🔇 Mute but don't stop to avoid reset
-    console.log(`🔇 Muted "${entry.sound}"`);
+    debugLog(`🔇 Muted "${entry.sound}"`);
   }
 }
 
@@ -1902,7 +1832,7 @@ function activateEntity(entityName) {
       entry.radius = originalProximityValues[entityName].radius;
       entry.minDist = originalProximityValues[entityName].minDist;
     }
-    console.log(`✅ Activated: ${entityName}`);
+    debugLog(`✅ Activated: ${entityName}`);
   }
 }
 
@@ -1932,7 +1862,7 @@ function deactivateEntity(entityName) {
       sfx.setVolume(0); // mute without stopping
     }
 
-    console.log(`🚫 Deactivated: ${entityName}`);
+    debugLog(`🚫 Deactivated: ${entityName}`);
   }
 }
 
@@ -1966,7 +1896,7 @@ function playModelClip(modelName, clipName, direction = 1, speed = 1) {
   model.userData.action = action;
   model.userData.clip = clip;
 
-  console.log(`🎞️ Playing "${clipName}" on "${modelName}" dir: ${direction} speed: ${speed}`);
+  debugLog(`🎞️ Playing "${clipName}" on "${modelName}" dir: ${direction} speed: ${speed}`);
 }
 
 function playModelClipOnce(modelName, clipName, speed = 1) {
@@ -1996,12 +1926,13 @@ function playModelClipOnce(modelName, clipName, speed = 1) {
   model.userData.action = action;
   model.userData.clip = clip;
 
-  console.log(`🎬 Playing "${clipName}" once on "${modelName}"`);
+  debugLog(`🎬 Playing "${clipName}" once on "${modelName}"`);
 }
 
 
 
 function onMouseMove(e) {
+  if (handPlayActive) return;
   mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(mouse, camera);
@@ -2032,7 +1963,7 @@ if (newHoveredHitbox !== lastHoveredHitbox) {
 
   // === Hover out ===
   if (lastHoveredHitbox) {
-    console.log(`👋 Hover out: ${lastHoveredHitbox}`);
+    debugLog(`👋 Hover out: ${lastHoveredHitbox}`);
     if (lastHoveredHitbox === 'hitbox_back' && !backHoverLocked) {
       playModelClip('back', 'nla_backclose', 1);
         playSFX('backopen');
@@ -2060,7 +1991,7 @@ const resumeAnim = (modelName) => {
       const action = mixer.existingAction(clip);
       if (action && action.paused) {
         action.paused = false;
-        console.log(`▶️ Resumed "${clip.name}" on "${modelName}"`);
+        debugLog(`▶️ Resumed "${clip.name}" on "${modelName}"`);
       }
     });
   }
@@ -2090,7 +2021,7 @@ const resumeAnim = (modelName) => {
 
   // === Hover in ===
   if (newHoveredHitbox) {
-    console.log(`👀 Hover in: ${newHoveredHitbox}`);
+    debugLog(`👀 Hover in: ${newHoveredHitbox}`);
 
     if (newHoveredHitbox === 'hitbox_hood' && !hoodHoverLocked) {
       playHoodClip('nla_hoodOpen', 5);
@@ -2121,7 +2052,7 @@ const pauseAnim = (modelName) => {
       const action = mixer.existingAction(clip);
       if (action && action.isRunning()) {
         action.paused = true;
-        console.log(`⏸️ Paused "${clip.name}" on "${modelName}"`);
+        debugLog(`⏸️ Paused "${clip.name}" on "${modelName}"`);
       }
     });
   }
@@ -2159,7 +2090,11 @@ const pauseAnim = (modelName) => {
 
 
 
-if (captionMap[newHoveredHitbox]) {
+menuRingLabels.setHover(newHoveredHitbox);
+if (menuRingLabels.handles(newHoveredHitbox)) {
+  captionEl.style.display = 'none';
+  cursor.classList.add('pointer');
+} else if (captionMap[newHoveredHitbox]) {
   captionEl.innerHTML = captionMap[newHoveredHitbox];
   captionEl.style.display = 'block';
  captionEl.style.left = `${e.clientX + 36}px`;
@@ -2176,6 +2111,7 @@ cursor.classList.add('pointer');
 }
 
 function onClick(e) {
+  if (handPlayActive) return;
   if (inputLocked || isDragging) return;
    if (isFormOpen) return;
 
@@ -2198,27 +2134,16 @@ if (!intersects.length) return;
   let obj = intersects[0].object;
   while (obj.parent && obj.parent !== scene) obj = obj.parent;
 
-  if (obj.name?.startsWith('hitbox_')) {
-    handleHitboxClick(obj);
-    const disableBtnOn = ['hitbox_menu', 'hitbox_guide', 'hitbox_back', 'hitbox_hood'];
-if (disableBtnOn.includes(obj.name)) {
-  console.log(`🔒 Disabling buttons due to ${obj.name} click`);
-
-  // disable specific buttons by ID
-  document.getElementById('button_portfolio')?.classList.add('disabled');
-  document.getElementById('button_show')?.classList.add('disabled');
-   document.getElementById('button_contact')?.classList.add('disabled');
+  handleHitboxClick(obj);
 }
 
-
-
-  }
-
+function performHitboxAction(obj) {
+  hideTapModel();
 // camera movement
 
  if (obj.name?.startsWith('hitbox_')) {
 
-  console.log(`🖱️ Clicked: ${obj.name}`);
+  debugLog(`🖱️ Clicked: ${obj.name}`);
 
 
 const mapping = hitboxMap[obj.name];
@@ -2249,7 +2174,7 @@ if (controlLimits) {
     controls.minAzimuthAngle = currentAzimuth - delta;
     controls.maxAzimuthAngle = currentAzimuth + delta;
 
-  console.log(`🎯 Custom OrbitControl limits for ${obj.name} applied`);
+  debugLog(`🎯 Custom OrbitControl limits for ${obj.name} applied`);
 }
 }
 
@@ -2266,7 +2191,7 @@ if (controlLimits) {
   if (obj.name === 'hitbox_hood') {
     if (inputLocked) return; // ⛔ prevent spamming
   inputLocked = true;
-  setTimeout(() => inputLocked = false, 700);
+  scheduleSceneEffect(() => inputLocked = false, 700);
     launchHitboxLift1();
       launchHitboxLift2();
       stopAutoOutlinePulse();
@@ -2276,7 +2201,7 @@ if (controlLimits) {
     hoodHoverLocked = true;
     controls.enabled = false;
     if (obj && obj.parent) {
-  console.log(`🗑️ Removing ${obj.name} from scene`);
+  debugLog(`🗑️ Removing ${obj.name} from scene`);
   obj.parent.remove(obj);
 }
   }
@@ -2290,32 +2215,41 @@ if (obj.name === 'hitbox_menu') {
   controls.enabled = false;
   if (inputLocked) return; // ⛔ prevent spamming
   inputLocked = true;
-  setTimeout(() => inputLocked = false, 700); // 🔓 unlock after buffer
+  scheduleSceneEffect(() => inputLocked = false, 700); // 🔓 unlock after buffer
 
   const DELAY_MS = 1000;
-  setTimeout(() => {
+  scheduleSceneEffect(() => {
 
     const menuModel = modelRefs['menu'];
     if (menuModel) {
       menuModel.visible = false;
 
-      ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'icon_ig', 'cs_app', 'cs_vr'].forEach(iconName => {
+      ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'icon_ig'].forEach(iconName => {
         const icon = modelRefs[iconName];
         if (icon) icon.visible = true;
       });
     }
   }, DELAY_MS);
+  scheduleSceneEffect(() => {
+    for (const [model, mesh] of [
+      ['icon_immersive', 'cone'], ['icon_immersive', 'cone_1'],
+      ['icon_reel', 'cube041_1'], ['icon_reel', 'cube041'],
+      ['icon_vr', 'cube040'], ['icon_vr', 'cube040_1'],
+      ['icon_app', 'nla_iconapp'], ['icon_app', 'nla_iconapp_1'],
+      ['icon_ig', 'iconig'], ['icon_ig', 'iconig_1'],
+    ]) scaleMeshBounce(model, mesh, 1.0, 1500);
+  }, 912);
 }
 
 if (obj.name === 'hitbox_ig') {
-  console.log('🔗 hitbox_ig clicked');
+  debugLog('🔗 hitbox_ig clicked');
   window.open('https://www.instagram.com/copycatstudio/', '_blank');
   return;
 }
 
 
 if (obj.name === 'hitbox_reel') {
-  console.log('🔗 hitbox_reel clicked → Opening YouTube...');
+  debugLog('🔗 hitbox_reel clicked → Opening YouTube...');
   window.open('https://www.youtube.com/watch?v=hFs0UhpgJSE', '_blank');
   return;
 }
@@ -2325,7 +2259,7 @@ const targets = ['cart', 'lamp', 'table', 'menu', 'guide', 'logo', 'sign1', 'sig
 
 if (hitboxAnimationState.cable) {
   // OFF → ON
-  setTimeout(() => {
+  scheduleSceneEffect(() => {
     targets.forEach(restoreAllLightAndGlow);
 }, 500);} else {
   // ON → OFF
@@ -2348,23 +2282,23 @@ playSFX(sfxName)
   isHDREnabled = !isHDREnabled;
 
   if (isHDREnabled) {
-     setTimeout(() => {
+     scheduleSceneEffect(() => {
     scene.environment = originalEnvMap;
     scene.background = null;
-    console.log('🌄 HDR enabled');
+    debugLog('🌄 HDR enabled');
     }, 500);
   } else {
     // ☠️ Disable HDR (use null or black texture)
     if (!originalEnvMap) originalEnvMap = scene.environment;
     scene.environment = null;
     scene.background = null; // or use a solid color
-    console.log('🌑 HDR disabled');
+    debugLog('🌑 HDR disabled');
   }
   return;
 }
 
 if (obj.name === 'hitbox_immersive') {
-  console.log('🔗 hitbox_immersive clicked → Opening Curio...');
+  debugLog('🔗 hitbox_immersive clicked → Opening Curio...');
   window.open('https://docs.google.com/presentation/d/1ZrNRbpl-3M6kloLYcbJJk-j9EWfL5spXpKrndXmEOxA/preview?slide=id.g34e9049caeb_0_12', '_blank');
   return;
 }
@@ -2398,10 +2332,10 @@ if (obj.name === 'hitbox_back') {
   if (inputLocked) return; // ⛔ prevent spamming
   inputLocked = true;
   stopAutoOutlinePulse();
-  setTimeout(() => inputLocked = false, 700);
+  scheduleSceneEffect(() => inputLocked = false, 700);
   moveHitboxY('hitbox_back', 500);
   playSFX('backfull');
-  console.log('🎯 hitbox_back clicked → move new position');
+  debugLog('🎯 hitbox_back clicked → move new position');
 playModelClip('back', 'nla_backall', 1);
    launchHitboxLift4();
       launchHitboxLift2();
@@ -2410,9 +2344,9 @@ playModelClip('back', 'nla_backall', 1);
 moveModelToOffsetXYZ('focus_cam', { x: -2.756675672531128, y: 0.7532350611686707, z: 0 }, 1000);
 controls.enabled = false;
 backHoverLocked = true;
-setTimeout(() => scaleMeshBounce('icon_shoes', 'shoes2_1', 1.0, 1500), 600);
-setTimeout(() => scaleMeshBounce('icon_shoes', 'shoes2_2', 1.0, 1500), 600);
-  setTimeout(() => modelRefs['icon_shoes'].visible = true, 600);
+scheduleSceneEffect(() => scaleMeshBounce('icon_shoes', 'shoes2_1', 1.0, 1500), 600);
+scheduleSceneEffect(() => scaleMeshBounce('icon_shoes', 'shoes2_2', 1.0, 1500), 600);
+  scheduleSceneEffect(() => modelRefs['icon_shoes'].visible = true, 600);
 return;
 }
 
@@ -2425,11 +2359,11 @@ moveHitboxY('car', 500);
   moveHitboxY('hitbox_engine', 500);
   if (inputLocked) return; // ⛔ prevent spamming
   inputLocked = true;
-  setTimeout(() => inputLocked = false, 700);
+  scheduleSceneEffect(() => inputLocked = false, 700);
 
 moveModelToOffsetXYZ('focus_cam', { x: 2.0016531944274902, y: 0.3605214059352875, z: -0.36794140815734863 }, 1000); 
 
-console.log('🔍 Isolating engine models...');
+debugLog('🔍 Isolating engine models...');
 
   Object.entries(modelRefs).forEach(([name, model]) => {
     if (!name.startsWith('engine_')) {
@@ -2445,7 +2379,7 @@ if (obj.name === 'hitbox_engine1') {
   moveHitboxY('hitbox_engine1', 500);
   if (inputLocked) return; // ⛔ prevent spamming
   inputLocked = true;
-  setTimeout(() => inputLocked = false, 700);
+  scheduleSceneEffect(() => inputLocked = false, 700);
 
 playSFX('right2');
 playModelClipOnce('engine_cover', 'nla_encover', 1);
@@ -2456,7 +2390,7 @@ if (obj.name === 'hitbox_engine2') {
   moveHitboxY('hitbox_engine2', 500);
   if (inputLocked) return; // ⛔ prevent spamming
   inputLocked = true;
-  setTimeout(() => inputLocked = false, 700);
+  scheduleSceneEffect(() => inputLocked = false, 700);
 
 playSFX('right3');
 playModelClipOnce('engine_base', 'nla_enbase', 1);
@@ -2468,11 +2402,11 @@ return;
 if (obj.name === 'hitbox_engine3') {
   hideUntilRemoved('engine_core', 'engine_corebroken');
   playSFX('right1');
-  setTimeout(() =>playSFX('right3'), 500);
+  scheduleSceneEffect(() =>playSFX('right3'), 500);
    const note = modelRefs['note_engine'];
   if (note) {
     note.visible = false; // ensure it starts hidden
-    setTimeout(() => {
+    scheduleSceneEffect(() => {
       note.visible = true; // reveal after 3 seconds (3000ms)
     }, 3000);
   }
@@ -2483,7 +2417,7 @@ if (obj.name === 'hitbox_engine3') {
     for (const model of Object.values(modelRefs)) {
       const target = model.getObjectByName?.(name);
       if (target && target.parent) {
-        console.log(`🗑️ Removing ${name} from ${model.name}`);
+        debugLog(`🗑️ Removing ${name} from ${model.name}`);
         target.parent.remove(target);
       }
     }
@@ -2492,18 +2426,18 @@ if (obj.name === 'hitbox_engine3') {
   const DELAY_NS = 500;
   const DELAY_MS = 1500;
   const DELAY_RS = 3000;
-  setTimeout(() => {
+  scheduleSceneEffect(() => {
 playModelClipOnce('engine_base', 'nla_enbaseback', 1);
 playModelClipOnce('engine_top', 'nla_entopback', 1);
-setTimeout(() => {
+scheduleSceneEffect(() => {
 playModelClipOnce('engine_fan', 'nla_enfanback', 1);
-setTimeout(() => {
+scheduleSceneEffect(() => {
 playModelClipOnce('engine_cover', 'nla_encoverback', 1);
-setTimeout(() => {
+scheduleSceneEffect(() => {
   resetSceneState();
 }, DELAY_MS)}, DELAY_NS)}, DELAY_NS)}, DELAY_NS);
 
-setTimeout(() => {
+scheduleSceneEffect(() => {
 document.getElementById('button_portfolio')?.classList.remove('disabled');
       document.getElementById('button_show')?.classList.remove('disabled');
       document.getElementById('button_contact')?.classList.remove('disabled');
@@ -2560,7 +2494,7 @@ toggleEntityState('robot', false);
   });
 
 
-  setTimeout(() => {
+  scheduleSceneEffect(() => {
     Object.entries(shoeAnimations).forEach(([modelName, clipName]) => {
       playModelClip(modelName, clipName, 1);
     });
@@ -2590,155 +2524,12 @@ toggleEntityState('robot', false);
   return;
 }
 
-// === end of click ===
 }
 
 function handleHitboxClick(obj) {
-
-    hideTapModel();
-
-  if (!obj?.name?.startsWith('hitbox_')) return;
-
-   const tap = modelRefs['tap'];
-  if (tap) {
-    scene.remove(tap);
-    delete modelRefs['tap'];
-    console.log('🗑️ tap.glb removed from scene and memory');
-  }
-
-  console.log(`🖱️ Clicked: ${obj.name}`);
-
-  const mapping = hitboxMap[obj.name];
-  if (mapping) {
-    let { cam, model, controls: controlLimits } = mapping;
-    if (typeof cam === 'object') {
-      cam = isMobileDevice() ? cam.mobile : cam.desktop;
-    }
-
-    const camTarget = camTargets[cam];
-    currentFocus = modelRefs['focus_cam'];
-
-    if (controlLimits) {
-      controls.minDistance = controlLimits.minDistance ?? controls.minDistance;
-      controls.maxDistance = controlLimits.maxDistance ?? controls.maxDistance;
-      if ('minAzimuthAngle' in controlLimits && 'maxAzimuthAngle' in controlLimits) {
-        controls.minAzimuthAngle = controlLimits.minAzimuthAngle;
-        controls.maxAzimuthAngle = controlLimits.maxAzimuthAngle;
-      } else {
-        const currentAzimuth = controls.getAzimuthalAngle();
-        const delta = Math.PI / 12;
-        controls.minAzimuthAngle = currentAzimuth - delta;
-        controls.maxAzimuthAngle = currentAzimuth + delta;
-        console.log(`🎯 Custom OrbitControl limits for ${obj.name} applied`);
-      }
-    }
-
-    if (camTarget) {
-      tweenToCamera(camTarget, model);
-    } else {
-      console.warn(`❌ Camera target "${cam}" not found.`);
-    }
-  }
-
-  // 🔁 Custom behavior per-hitbox (copied from your original logic)
-  switch (obj.name) {
-    case 'hitbox_hood':
-      if (inputLocked) return;
-      inputLocked = true;
-      setTimeout(() => inputLocked = false, 700);
-      launchHitboxLift1();
-      launchHitboxLift2();
-      stopAutoOutlinePulse();
-      playHoodClip('nla_hoodAction');
-      playSFX('hoodfull');
-      moveModelToOffsetXYZ('focus_cam', {
-        x: 2.0016531944274902,
-        y: 0.3605214059352875,
-        z: -0.33794140815734863
-      }, 1000);
-      hoodHoverLocked = true;
-      controls.enabled = false;
-      if (obj.parent) obj.parent.remove(obj);
-      break;
-
-    case 'hitbox_menu':
-      launchHitboxLift1();
-      stopAutoOutlinePulse();
-      playSFX('menu');
-      moveModelToOffsetXYZ('focus_cam', {
-        x: -0.19776688516139984,
-        y: 1.1592967510223389,
-        z: -0.3411976993083954
-      }, 1000);
-      controls.enabled = false;
-      if (inputLocked) return;
-      inputLocked = true;
-      setTimeout(() => inputLocked = false, 700);
-      setTimeout(() => {
-      const menuModel = modelRefs['menu'];
-        if (menuModel) {
-          menuModel.visible = false;
-          ['icon_app', 'icon_vr', 'icon_immersive', 'icon_reel', 'icon_ig', 'cs_app', 'cs_vr'].forEach(iconName => {
-            const icon = modelRefs[iconName];
-            if (icon) icon.visible = true;
-          });
-        }
-      }, 1000);
-      setTimeout(() => scaleMeshBounce('icon_immersive', 'cone', 1.0, 1500), 912);
-      setTimeout(() => scaleMeshBounce('icon_immersive', 'cone_1', 1.0, 1500), 912);
-      setTimeout(() => scaleMeshBounce('icon_reel', 'cube041_1', 1.0, 1500), 912);
-      setTimeout(() => scaleMeshBounce('icon_reel', 'cube041', 1.0, 1500), 912);
-      setTimeout(() => scaleMeshBounce('icon_vr', 'cube040', 1.0, 1500), 912);
-      setTimeout(() => scaleMeshBounce('icon_vr', 'cube040_1', 1.0, 1500), 912);
-      setTimeout(() => scaleMeshBounce('icon_app', 'nla_iconapp', 1.0, 1500), 912);
-      setTimeout(() => scaleMeshBounce('icon_app', 'nla_iconapp_1', 1.0, 1500), 912);
-      setTimeout(() => scaleMeshBounce('icon_ig', 'iconig', 1.0, 1500), 912);
-      setTimeout(() => scaleMeshBounce('icon_ig', 'iconig_1', 1.0, 1500), 912);
-      break;
-
-    case 'hitbox_speaker':
-  toggleEntityState('speaker');
-  break;
-
-
-    case 'hitbox_back':
-      if (inputLocked) return;
-      inputLocked = true;
-      setTimeout(() => inputLocked = false, 700);
-      moveHitboxY('hitbox_back', 500);
-      playSFX('backfull');
-      playModelClip('back', 'nla_backall', 1);
-      launchHitboxLift4();
-      launchHitboxLift2();
-      launchHitboxLift3();
-      launchHitboxLift5();
-      moveModelToOffsetXYZ('focus_cam', {
-        x: -2.756675672531128,
-        y: 0.7532350611686707,
-        z: 0
-      }, 1000);
-      controls.enabled = false;
-      backHoverLocked = true;
-      setTimeout(() => scaleMeshBounce('icon_shoes', 'shoes2_1', 1.0, 1500), 600);
-setTimeout(() => scaleMeshBounce('icon_shoes', 'shoes2_2', 1.0, 1500), 600);
-      setTimeout(() => modelRefs['icon_shoes'].visible = true, 600);
-      break;
-
-    case 'hitbox_table':
-      stopAutoOutlinePulse();
-     isFormOpen = true;
-
-  document.getElementById('email-form-overlay').style.display = 'flex';
-  document.querySelector('canvas').style.pointerEvents = 'none';
-
-
-  // Optional: disable controls
-  controls.enabled = false;
-      break;
-
-    default:
-      console.log(`ℹ️ No special logic for ${obj.name}`);
-  }
+  const path = HITBOX_ROUTES[obj?.name];
+  if (path) { sceneRouter.navigate(path); return; }
+  if (obj?.name?.startsWith('hitbox_')) performHitboxAction(obj);
 }
 
 document.querySelectorAll('.menu-btn').forEach(btn => {
@@ -2747,7 +2538,7 @@ document.querySelectorAll('.menu-btn').forEach(btn => {
     const hitboxName = btn.dataset.hitbox;
 
     if (action === 'reset') {
-      console.log('🔁 Reset button clicked via bottom bar');
+      debugLog('🔁 Reset button clicked via bottom bar');
       resetSceneState();
 
       // ✅ Re-enable buttons
@@ -2862,9 +2653,18 @@ function getVolumeByDistance(distance, min = 20, max = 30, maxVol = 1) {
   return maxVol * (1 - (distance - min) / (max - min));
 }
 
+const soundPosition = new THREE.Vector3();
+const cameraPosition = new THREE.Vector3();
+const focusPosition = new THREE.Vector3();
+document.addEventListener('visibilitychange', () => {
+  // Drop background elapsed time so animations do not jump when returning.
+  clock.getDelta();
+});
+
 function animate() {
   requestAnimationFrame(animate);
-  const delta = clock.getDelta();
+  const delta = Math.min(clock.getDelta(), 0.1);
+  if (document.hidden || handPlayActive) return;
   controls.update();
   tweenGroup.update();
 
@@ -2876,7 +2676,7 @@ function animate() {
   const sfx = sfxMap[entry.sound];
   if (!sfx || !sfx.buffer) return;
 
-  const soundPos = entry.position ?? (() => {
+  const soundPos = entry.position ?? entry.object ?? (() => {
     let model = modelRefs[entry.name];
     if (!model) {
       for (const ref of Object.values(modelRefs)) {
@@ -2889,12 +2689,12 @@ function animate() {
   })();
 
   if (!soundPos) return;
+  if (!entry.position) entry.object = soundPos;
 
-  const soundWorldPos = soundPos.isVector3 ? soundPos : new THREE.Vector3().setFromMatrixPosition(soundPos.matrixWorld);
-  const cameraPos = new THREE.Vector3();
-  camera.getWorldPosition(cameraPos);
+  const soundWorldPos = soundPos.isVector3 ? soundPos : soundPosition.setFromMatrixPosition(soundPos.matrixWorld);
+  camera.getWorldPosition(cameraPosition);
 
-  const distance = soundWorldPos.distanceTo(cameraPos);
+  const distance = soundWorldPos.distanceTo(cameraPosition);
   const volume = getVolumeByDistance(distance, entry.minDist ?? 1, entry.radius, entry.maxVol ?? 0.75);
 
   sfx.setVolume(volume);
@@ -2915,16 +2715,17 @@ function animate() {
   'icon_app', 'icon_vr', 'icon_reel', 'icon_immersive', 'icon_ig', 'person', 'guide', 'speaker', 'shoes', 'icon_shoes',
   'engine_corebroken', 'engine_core', 'engine_top', 'engine_cover', 'engine_fan', 'engine_base',
   'shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol',
-  'cs_app', 'cs_vr', 'note_engine', 'tap'
+  'note_engine', 'tap'
 ].forEach(name => {
   const model = modelRefs[name];
   const mixer = model?.userData?.mixer;
-  if (mixer) mixer.update(delta);
+  if (mixer && model.visible) mixer.update(delta);
 });
 
 
 
 
+  menuRingLabels.update(delta);
   swapTimer += delta;
  if (signsSwapEnabled && swapTimer >= 1 && modelRefs['sign1'] && modelRefs['sign2']) {
   swapTimer = 0;
@@ -2935,11 +2736,10 @@ function animate() {
 
 
 if (currentFocus) {
-  const pos = new THREE.Vector3();
-  currentFocus.getWorldPosition(pos);
-  controls.target.copy(pos); 
+  currentFocus.getWorldPosition(focusPosition);
+  controls.target.copy(focusPosition);
 }
-updateDebugMarker(); 
+if (DEBUG) updateDebugMarker();
 renderer.render(scene, camera);
 }
 
@@ -3008,59 +2808,156 @@ window.addEventListener('DOMContentLoaded', () => {
 
   if (articlePanel) {
     addTapSwipeDetection(articlePanel, 
-      () => console.log('✅ TAP on article-panel'),
-      () => console.log('🧭 SWIPE on article-panel')
+      () => debugLog('✅ TAP on article-panel'),
+      () => debugLog('🧭 SWIPE on article-panel')
     );
   }
 
   if (articleViewer) {
     addTapSwipeDetection(articleViewer,
-      () => console.log('✅ TAP on article-viewer-panel'),
-      () => console.log('🧭 SWIPE on article-viewer-panel')
+      () => debugLog('✅ TAP on article-viewer-panel'),
+      () => debugLog('🧭 SWIPE on article-viewer-panel')
     );
   }
 });
 
-function handleShoesClick() {
-    const model = modelRefs['shoes'];
-  const hitbox = model?.getObjectByName('hitbox_shoes');
 
-  if (!hitbox) {
-    console.warn('❌ hitbox_shoes not found');
-    return;
-  }
 
-  // 🧠 Trigger central hitbox click logic
-  handleHitboxClick(hitbox);
-  // Update URL only if needed
-  if (window.location.hash !== '#/shoes') {
-  window.location.hash = '#/shoes';
+const sceneEffects = new Set();
+let immediateSceneEntry = false;
+function scheduleSceneEffect(callback, delay) {
+  if (immediateSceneEntry) { callback(); return; }
+  const id = setTimeout(() => { sceneEffects.delete(id); callback(); }, delay);
+  sceneEffects.add(id);
+  return id;
 }
-  // Focus camera on the shoes hitbox
-  const camName = isMobileDevice() ? 'cam_shoesmobile' : 'cam_shoes';
-  const cam = camTargets[camName];
-  if (cam) {
-    tweenToCamera(cam);
-  }
-
-  // Show shoe parts
-  ['shoes_bot', 'shoes_body', 'shoes_plastic', 'shoes_rubber', 'shoes_carbon', 'shoes_sol'].forEach(name => {
-    const model = modelRefs[name];
-    if (model) model.visible = true;
+const sceneBaseline = [];
+const baselineLoops = [];
+function captureSceneBaseline() {
+  scene.traverse(node => {
+    if (node === scene || node === camera || node === listener) return;
+    sceneBaseline.push({ node, parent: node.parent, position: node.position.clone(),
+      quaternion: node.quaternion.clone(), scale: node.scale.clone(), visible: node.visible });
   });
-
-  // Show toggle buttons and captions
-  toggleShoeBackground(true);
-  const shoeBtnGroup = document.getElementById('shoe-button-group');
-  if (shoeBtnGroup) shoeBtnGroup.style.display = 'block';
-
-  controls.minDistance = .5;
-  controls.maxDistance = 1.5;
-  controls.minAzimuthAngle = -Math.PI / -3;
-  controls.maxAzimuthAngle = Math.PI / -1;
-
-  console.log('👟 Shoes scene activated');
+  Object.values(modelRefs).forEach(model => {
+    const mixer = model.userData.mixer;
+    if (!mixer) return;
+    const actions = (model.userData.clips || []).map(clip => mixer.existingAction(clip))
+      .filter(action => action?.isRunning());
+    baselineLoops.push({ mixer, actions });
+  });
 }
+function restoreSceneBaseline() {
+  sceneEffects.forEach(clearTimeout);
+  sceneEffects.clear();
+  tweenGroup.removeAll();
+  inputLocked = false;
+  stopAutoOutlinePulse();
+  resetSceneStateCore();
+  // Complete cleanup synchronously; the next camera movement is the only transition.
+  tweenGroup.getAll().forEach(tween => tween.end());
+  tweenGroup.removeAll();
+  hoodAnim.mixer?.stopAllAction();
+  Object.values(modelRefs).forEach(model => model.userData.mixer?.stopAllAction());
+  sceneBaseline.forEach(({ node, parent, position, quaternion, scale, visible }) => {
+    if (node.parent !== parent) {
+      const replacement = parent.children.find(child => child !== node && child.name === node.name);
+      if (replacement) parent.remove(replacement);
+      parent.add(node);
+    }
+    node.position.copy(position);
+    node.quaternion.copy(quaternion);
+    node.scale.copy(scale);
+    node.visible = visible;
+  });
+  baselineLoops.forEach(({ mixer, actions }) => {
+    actions.forEach(action => action.reset().play());
+    mixer.update(0);
+  });
+  visibilityLock = {};
+  isFormOpen = false;
+  isRaycastEnabled = true;
+  const shoeToggle = document.getElementById('toggle-shoe-button');
+  if (shoeToggle) shoeToggle.src = '/textures/button_toggle1.png';
+  document.getElementById('email-form-overlay').style.display = 'none';
+  renderer.domElement.style.pointerEvents = 'auto';
+  currentFocus = null;
+  scene.updateMatrixWorld(true);
+}
+let handPlayActive = false;
+let handPlayDispose = null;
+let handPlayGeneration = 0;
+function closeHandPlay() {
+  handPlayGeneration++;
+  handPlayDispose?.(); handPlayDispose = null;
+  document.getElementById('hand-play-host')?.remove();
+  document.body.classList.remove('hand-play-active');
+  handPlayActive = false;
+}
+function openHandPlay() {
+  handPlayActive = true;
+  const generation = ++handPlayGeneration;
+  Object.values(sfxMap).forEach(sound => { if (sound.isPlaying) sound.stop(); });
+  const host = document.createElement('div');
+  host.id = 'hand-play-host';
+  host.textContent = 'Menyiapkan Hand Playground…';
+  for (const event of ['click', 'mousedown', 'mouseup', 'mousemove', 'touchstart', 'touchend']) {
+    host.addEventListener(event, e => e.stopPropagation());
+  }
+  document.body.append(host);
+  document.body.classList.add('hand-play-active');
+  import('./hand-play.js').then(({ mountHandPlay }) => {
+    if (!handPlayActive || generation !== handPlayGeneration) return;
+    handPlayDispose = mountHandPlay(host, () => sceneRouter.navigate('/menu'));
+  }).catch(error => {
+    if (generation !== handPlayGeneration) return;
+    console.error(error);
+    host.textContent = 'Aplikasi gagal dimuat. Periksa koneksi. ';
+    const back = document.createElement('button'); back.textContent = 'Kembali ke Menu';
+    back.onclick = () => sceneRouter.navigate('/menu'); host.append(back);
+  });
+}
+const sceneRouter = createSceneRouter({
+  window,
+  activate(route, { initial }) {
+    closeHandPlay();
+    const savedPosition = camera.position.clone();
+    const savedQuaternion = camera.quaternion.clone();
+    if (!initial) restoreSceneBaseline();
+    if (!initial) {
+      camera.position.copy(savedPosition);
+      camera.quaternion.copy(savedQuaternion);
+    }
+    if (route.app) { openHandPlay(); return true; }
+    if (!route.hitbox) {
+      if (isMobileDevice()) startAutoOutlinePulse();
+      if (mainCamTransform) tweenToCamera(mainCamTransform);
+      return true;
+    }
+    const hitbox = scene.getObjectByName(route.hitbox);
+    if (!hitbox) {
+      console.error(`Route target not found: ${route.hitbox}`);
+      return false;
+    }
+    immediateSceneEntry = initial;
+    try {
+      performHitboxAction(hitbox);
+      if (initial) {
+        tweenGroup.getAll().forEach(tween => tween.end());
+        tweenGroup.removeAll();
+        inputLocked = false;
+        scene.updateMatrixWorld(true);
+        if (currentFocus) {
+          currentFocus.getWorldPosition(controls.target);
+        }
+      }
+    } finally { immediateSceneEntry = false; }
+    if (['hitbox_menu', 'hitbox_back', 'hitbox_hood', 'hitbox_guide', 'hitbox_robot'].includes(route.hitbox)) {
+      disableMainButtons();
+    }
+    return true;
+  },
+});
 
 
 animate();
